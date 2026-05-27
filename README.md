@@ -60,14 +60,14 @@ After bumping a version:
 ```bash
 npm login
 bun run build:cli
-npm publish --workspace racore --access public
+npm publish --workspace @loai/racore-cli --access public
 ```
 
 ## In-app release workflow
 
 - `/onboarding` shows setup and publish steps
 - `/releases` shows the current version and changelog notes
-- startup checks npm directly for a newer published version
+- startup checks npm directly for a newer published version of `@loai/racore-cli`
 
 ## Local Data
 

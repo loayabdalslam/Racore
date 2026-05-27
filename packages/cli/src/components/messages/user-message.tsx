@@ -9,12 +9,18 @@ type Props = {
 
 export function UserMessage({ message, mode }: Props) {
   const { colors } = useTheme();
+  const borderColor =
+    mode === Mode.PLAN
+      ? colors.planMode
+      : mode === Mode.ULTRA
+        ? colors.info
+        : colors.primary;
 
   return (
     <box width="100%" alignItems="center">
       <box
         border={["left"]}
-        borderColor={mode === Mode.PLAN ? colors.planMode : colors.primary}
+        borderColor={borderColor}
         width="100%"
         customBorderChars={{
           ...EmptyBorder,

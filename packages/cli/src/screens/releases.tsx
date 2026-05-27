@@ -34,7 +34,7 @@ export function ReleasesScreen() {
         { label: "Home", onSelect: () => navigate("/") },
       ]}
     >
-      <text>Current version: {CLI_VERSION}</text>
+      <text wrapMode="word">Current version: {CLI_VERSION}</text>
       {RELEASE_NOTES.map((release) => (
         <box
           key={release.version}
@@ -45,10 +45,10 @@ export function ReleasesScreen() {
           paddingY={1}
           gap={1}
         >
-          <text>{release.version} - {release.title}</text>
-          <text>{release.description}</text>
+          <text wrapMode="word">{release.version} - {release.title}</text>
+          <text wrapMode="word">{release.description}</text>
           {release.changes.map((change) => (
-            <text key={change}>- {change}</text>
+            <text key={change} wrapMode="word">- {change}</text>
           ))}
         </box>
       ))}

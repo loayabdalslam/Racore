@@ -8,6 +8,7 @@ import { Session } from "./screens/session";
 import { ConfigScreen } from "./screens/config";
 import { ReleasesScreen } from "./screens/releases";
 import { OnboardingScreen } from "./screens/onboarding";
+import { ProviderScreen } from "./screens/provider-screen";
 
 const router = createMemoryRouter([
   {
@@ -16,6 +17,7 @@ const router = createMemoryRouter([
     children: [
       { index: true, element: <Home /> },
       { path: "config", element: <ConfigScreen /> },
+      { path: "config/provider/:providerId", element: <ProviderScreen /> },
       { path: "releases", element: <ReleasesScreen /> },
       { path: "onboarding", element: <OnboardingScreen /> },
       { path: "sessions/new", element: <NewSession /> },

@@ -19,11 +19,11 @@ R'a Core stores runtime data in `~/.racore/`:
 
 ## Prepare for npm publish
 
-1. Confirm the package name `racore` is available on npm
+1. Confirm the scoped package name `@loai/racore-cli` is available on npm
 2. Run `npm login`
 3. Make sure `packages/cli/package.json` has the right repository URLs
 4. Build with `bun run build:cli`
-5. Publish from the repo root with `npm publish --workspace racore --access public`
+5. Publish from the repo root with `npm publish --workspace @loai/racore-cli --access public`
 
 ## Versioning
 
@@ -37,4 +37,4 @@ Then update `CHANGELOG.md` with the release description before publishing.
 
 ## Auto-update expectation
 
-The CLI checks the npm registry for the latest published `racore` version and can surface an update notice inside the app.
+The CLI checks the npm registry for the latest published `@loai/racore-cli` version and can surface an update notice inside the app.

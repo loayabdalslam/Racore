@@ -19,21 +19,14 @@ type CenteredPageProps = {
 
 function ActionLink({ action }: { action: Action }) {
   const { colors } = useTheme();
+  const color =
+    action.tone === "primary"
+      ? colors.primary
+      : action.tone === "muted"
+        ? colors.dimSeparator
+        : colors.info;
 
-  return (
-    <text
-      fg={
-        action.tone === "primary"
-          ? colors.primary
-          : action.tone === "muted"
-            ? colors.dimSeparator
-            : colors.info
-      }
-      onMouseDown={action.onSelect}
-    >
-      [{action.label}]
-    </text>
-  );
+  return <text fg={color} onMouseDown={action.onSelect}>[{action.label}]</text>;
 }
 
 export function CenteredPage({
@@ -43,47 +36,40 @@ export function CenteredPage({
   actions = [],
   footerHint = "tab mode",
 }: CenteredPageProps) {
-  const { colors } = useTheme();
+  const { colors, fontSize } = useTheme();
+  const pageMaxWidth = fontSize === "Small" ? 88 : fontSize === "Large" ? 70 : 78;
+  const panelMaxWidth = fontSize === "Small" ? 82 : fontSize === "Large" ? 66 : 74;
+  const panelPaddingX = fontSize === "Large" ? 2 : 3;
 
   return (
-    <box
-      alignItems="center"
-      justifyContent="center"
-      flexGrow={1}
-      width="100%"
-      height="100%"
-      paddingX={4}
-      paddingY={2}
-    >
-      <box width="100%" maxWidth={100} flexDirection="column" gap={2} alignItems="center">
+    <box alignItems="center" justifyContent="center" flexGrow={1} width="100%" height="100%" paddingX={2} paddingY={1}>
+      <box width="100%" maxWidth={pageMaxWidth} flexDirection="column" gap={1} alignItems="center">
         <Header />
         <box
           width="100%"
-          maxWidth={84}
+          maxWidth={panelMaxWidth}
           backgroundColor={colors.surface}
           border={["left", "right"]}
           borderColor={colors.thinkingBorder}
           customBorderChars={{
-            vertical: "│",
+            vertical: "|",
             horizontal: " ",
             topLeft: " ",
             topRight: " ",
             bottomLeft: " ",
             bottomRight: " ",
           }}
-          paddingX={4}
+          paddingX={panelPaddingX}
           paddingY={2}
           flexDirection="column"
-          gap={2}
+          gap={1}
         >
           <box alignItems="center" justifyContent="center">
             <text attributes={TextAttributes.BOLD}>{title.toUpperCase()}</text>
           </box>
           {description ? (
             <box width="100%" justifyContent="center" paddingX={2}>
-              <text fg={colors.dimSeparator} wrapMode="word" textAlign="center">
-                {description}
-              </text>
+              <text width="100%" fg={colors.dimSeparator} wrapMode="word" textAlign="center">{description}</text>
             </box>
           ) : null}
           <box width="100%" flexDirection="column" gap={2}>
@@ -91,15 +77,13 @@ export function CenteredPage({
           </box>
           {actions.length > 0 ? (
             <box width="100%" justifyContent="center" paddingTop={1}>
-              <box flexDirection="row" gap={2} flexWrap="wrap" justifyContent="center">
-                {actions.map((action) => (
-                  <ActionLink key={action.label} action={action} />
-                ))}
+              <box flexDirection="row" gap={2} justifyContent="center">
+                {actions.map((action) => <ActionLink key={action.label} action={action} />)}
               </box>
             </box>
           ) : null}
         </box>
-        <box width="100%" maxWidth={84} justifyContent="flex-end">
+        <box width="100%" maxWidth={panelMaxWidth} justifyContent="flex-end">
           <box flexDirection="row" gap={1}>
             <text>tab</text>
             <text attributes={TextAttributes.DIM}>{footerHint}</text>

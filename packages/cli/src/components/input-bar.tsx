@@ -557,11 +557,17 @@ export function InputBar({ onSubmit, disabled = false }: Props) {
     <box width="100%" alignItems="center">
       <box
         border={["left"]}
-        borderColor={mode === Mode.BUILD ? colors.primary : colors.planMode}
+        borderColor={
+          mode === Mode.BUILD
+            ? colors.primary
+            : mode === Mode.ULTRA
+              ? colors.info
+              : colors.planMode
+        }
         customBorderChars={{
           ...EmptyBorder,
-          vertical: "┃",
-          bottomLeft: "╹",
+          vertical: "|",
+          bottomLeft: "+",
         }}
         width="100%"
       >

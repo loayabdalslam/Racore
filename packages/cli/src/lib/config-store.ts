@@ -9,6 +9,9 @@ export function getDefaultConfig(): AppConfig {
     modelByProvider: {
       [ProviderId.OPENAI]: getDefaultModel(ProviderId.OPENAI).id,
       [ProviderId.OPENROUTER]: getDefaultModel(ProviderId.OPENROUTER).id,
+      [ProviderId.GROQ]: getDefaultModel(ProviderId.GROQ).id,
+      [ProviderId.XAI]: getDefaultModel(ProviderId.XAI).id,
+      [ProviderId.DEEPSEEK]: getDefaultModel(ProviderId.DEEPSEEK).id,
     },
     mode: Mode.BUILD,
   };

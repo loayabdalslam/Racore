@@ -27,7 +27,10 @@ function truncate(value: string, limit: number) {
 }
 
 export async function executeLocalTool(toolName: string, input: unknown, mode: ModeType) {
-  if (mode === Mode.PLAN && !["readFile", "listDirectory", "glob", "grep"].includes(toolName)) {
+  if (
+    mode === Mode.PLAN
+    && !["readFile", "listDirectory", "glob", "grep", "readManyFiles", "grepManyPatterns"].includes(toolName)
+  ) {
     throw new Error(`Tool ${toolName} is not available in PLAN mode`);
   }
 
@@ -120,6 +123,26 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
 
       return { matches, ...(truncated ? { truncated: true, totalMatches: lines.length } : {}) };
     }
+    case "readManyFiles": {
+      const { paths } = toolInputSchemas.readManyFiles.parse(input);
+      const results = await Promise.all(
+        paths.map(async (path) => {
+          const output = await executeLocalTool("readFile", { path }, mode) as { content?: string; truncated?: boolean };
+          return { path, ...output };
+        }),
+      );
+      return { files: results };
+    }
+    case "grepManyPatterns": {
+      const { queries } = toolInputSchemas.grepManyPatterns.parse(input);
+      const results = await Promise.all(
+        queries.map(async (query) => {
+          const output = await executeLocalTool("grep", query, mode);
+          return { query, result: output };
+        }),
+      );
+      return { results };
+    }
     case "writeFile": {
       const { path, content } = toolInputSchemas.writeFile.parse(input);
       const { cwd, resolved } = resolveInsideCwd(path);
@@ -130,6 +153,13 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
         path: relative(cwd, resolved),
         bytesWritten: Buffer.byteLength(content, "utf-8"),
       };
+    }
+    case "writeManyFiles": {
+      const { files } = toolInputSchemas.writeManyFiles.parse(input);
+      const results = await Promise.all(
+        files.map(async (file) => executeLocalTool("writeFile", file, mode)),
+      );
+      return { files: results };
     }
     case "editFile": {
       const { path, oldString, newString } = toolInputSchemas.editFile.parse(input);

@@ -17,6 +17,17 @@ function buildSystemPrompt(mode: ModeType) {
     return "You are R'a Core, a planning-first coding assistant. In PLAN mode, inspect and reason carefully. Only use read-only tools.";
   }
 
+  if (mode === Mode.ULTRA) {
+    return [
+      "You are R'a Core in Ultra Mode.",
+      "Ultra Mode is optimized for parallel execution, parallel tool calling, and delegated sub-analysis.",
+      "When useful, issue multiple independent tool calls in the same step.",
+      "Prefer batch tools such as readManyFiles, grepManyPatterns, and writeManyFiles when the task spans several files.",
+      "Use invokeAI for focused sub-analysis or decomposition when parallel reasoning would help.",
+      "Keep work coordinated and merge results back into one clear response.",
+    ].join(" ");
+  }
+
   return "You are R'a Core, a coding assistant working inside the user's local project. Use tools when needed, prefer precise edits, and explain progress clearly.";
 }
 
@@ -31,11 +42,35 @@ function getModel(provider: ProviderIdType, modelId: string) {
       apiKey: auth.apiKey,
       baseURL: "https://openrouter.ai/api/v1",
       headers: {
-        "HTTP-Referer": "https://github.com/racorexyz/racore",
+        "HTTP-Referer": "https://github.com/loayabdalslam/racore",
         "X-Title": "R'a Core",
       },
     });
     return openrouter(modelId);
+  }
+
+  if (provider === ProviderId.GROQ) {
+    const groq = createOpenAI({
+      apiKey: auth.apiKey,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
+    return groq(modelId);
+  }
+
+  if (provider === ProviderId.XAI) {
+    const xai = createOpenAI({
+      apiKey: auth.apiKey,
+      baseURL: "https://api.x.ai/v1",
+    });
+    return xai(modelId);
+  }
+
+  if (provider === ProviderId.DEEPSEEK) {
+    const deepseek = createOpenAI({
+      apiKey: auth.apiKey,
+      baseURL: "https://api.deepseek.com/v1",
+    });
+    return deepseek(modelId);
   }
 
   const openai = createOpenAI({
@@ -62,6 +97,7 @@ export async function submitChat(params: {
 }) {
   const startTime = Date.now();
   const model = getModel(params.provider, params.model);
+  const coreMessages = toCoreMessages(params.messages);
 
   const tools = {
     readFile: tool({
@@ -80,9 +116,21 @@ export async function submitChat(params: {
       inputSchema: toolInputSchemas.grep,
       execute: async (input) => executeLocalTool("grep", input, params.mode),
     }),
+    readManyFiles: tool({
+      inputSchema: toolInputSchemas.readManyFiles,
+      execute: async (input) => executeLocalTool("readManyFiles", input, params.mode),
+    }),
+    grepManyPatterns: tool({
+      inputSchema: toolInputSchemas.grepManyPatterns,
+      execute: async (input) => executeLocalTool("grepManyPatterns", input, params.mode),
+    }),
     writeFile: tool({
       inputSchema: toolInputSchemas.writeFile,
       execute: async (input) => executeLocalTool("writeFile", input, params.mode),
+    }),
+    writeManyFiles: tool({
+      inputSchema: toolInputSchemas.writeManyFiles,
+      execute: async (input) => executeLocalTool("writeManyFiles", input, params.mode),
     }),
     editFile: tool({
       inputSchema: toolInputSchemas.editFile,
@@ -92,14 +140,33 @@ export async function submitChat(params: {
       inputSchema: toolInputSchemas.bash,
       execute: async (input) => executeLocalTool("bash", input, params.mode),
     }),
+    invokeAI: tool({
+      inputSchema: toolInputSchemas.invokeAI,
+      execute: async (input) => {
+        const subtask = await generateText({
+          model,
+          system: "You are a focused sub-agent for R'a Core Ultra Mode. Solve the subtask concisely.",
+          messages: [
+            ...coreMessages,
+            {
+              role: "user",
+              content: [`Subtask: ${input.task}`, input.context ? `Context: ${input.context}` : ""].filter(Boolean).join("\n"),
+            },
+          ],
+          maxSteps: 2,
+        });
+
+        return { text: subtask.text };
+      },
+    }),
   };
 
   const result = await generateText({
     model,
     system: buildSystemPrompt(params.mode),
-    messages: toCoreMessages(params.messages),
+    messages: coreMessages,
     tools,
-    maxSteps: params.mode === Mode.PLAN ? 6 : 10,
+    maxSteps: params.mode === Mode.PLAN ? 6 : params.mode === Mode.ULTRA ? 14 : 10,
   });
 
   const assistantParts: ChatMessage["parts"] = [];

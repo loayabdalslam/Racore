@@ -7,7 +7,11 @@ import { ensureAppDirectories, THEME_PREFERENCES_PATH } from "../../lib/app-path
 
 type ThemePreferences = {
   themeName: string;
+  fontSize: FontSize;
 };
+
+export const FONT_SIZES = ["Small", "Medium", "Large"] as const;
+export type FontSize = (typeof FONT_SIZES)[number];
 
 function getInitialTheme(): Theme {
   try {
@@ -21,12 +25,23 @@ function getInitialTheme(): Theme {
   }
 };
 
-function persistTheme(theme: Theme) {
+function getInitialFontSize(): FontSize {
+  try {
+    const preferences = JSON.parse(
+      readFileSync(THEME_PREFERENCES_PATH, "utf8"),
+    ) as Partial<ThemePreferences>;
+    return FONT_SIZES.find((size) => size === preferences.fontSize) ?? "Medium";
+  } catch {
+    return "Medium";
+  }
+}
+
+function persistPreferences(theme: Theme, fontSize: FontSize) {
   try {
     ensureAppDirectories();
     writeFileSync(
       THEME_PREFERENCES_PATH,
-      JSON.stringify({ themeName: theme.name } satisfies ThemePreferences, null, 2),
+      JSON.stringify({ themeName: theme.name, fontSize } satisfies ThemePreferences, null, 2),
       "utf8",
     );
   } catch {
@@ -37,7 +52,9 @@ function persistTheme(theme: Theme) {
 type ThemeContextValue = {
   colors: ThemeColors;
   currentTheme: Theme;
+  fontSize: FontSize;
   setTheme: (theme: Theme) => void;
+  setFontSize: (fontSize: FontSize) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -56,15 +73,27 @@ type ThemeProviderProps = {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [currentTheme, setCurrentTheme] = useState<Theme>(getInitialTheme);
+  const [fontSize, setCurrentFontSize] = useState<FontSize>(getInitialFontSize);
 
   const setTheme = useCallback((theme: Theme) => {
     setCurrentTheme(theme);
-    persistTheme(theme);
-  }, []);
+    persistPreferences(theme, fontSize);
+  }, [fontSize]);
+
+  const setFontSize = useCallback((nextFontSize: FontSize) => {
+    setCurrentFontSize(nextFontSize);
+    persistPreferences(currentTheme, nextFontSize);
+  }, [currentTheme]);
 
   return (
     <ThemeContext.Provider 
-      value={{ colors: currentTheme.colors, currentTheme, setTheme }}>
+      value={{
+        colors: currentTheme.colors,
+        currentTheme,
+        fontSize,
+        setTheme,
+        setFontSize,
+      }}>
       {children}
     </ThemeContext.Provider>
   );

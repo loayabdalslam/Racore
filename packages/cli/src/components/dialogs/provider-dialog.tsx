@@ -1,20 +1,8 @@
 import { useCallback } from "react";
 import { useDialog } from "../../providers/dialog";
 import { DialogSearchList } from "../dialog-search-list";
-import { ProviderId, type ProviderIdType } from "../../lib/app-schema";
-
-const PROVIDERS: { id: ProviderIdType; label: string; hint: string }[] = [
-  {
-    id: ProviderId.OPENAI,
-    label: "OpenAI / Codex",
-    hint: "Direct OpenAI-compatible provider",
-  },
-  {
-    id: ProviderId.OPENROUTER,
-    label: "OpenRouter",
-    hint: "Unified model routing",
-  },
-];
+import { type ProviderIdType } from "../../lib/app-schema";
+import { PROVIDERS } from "../../lib/providers";
 
 type Props = {
   onSelectProvider: (provider: ProviderIdType) => void;
@@ -34,18 +22,12 @@ export function ProviderDialogContent({ onSelectProvider }: Props) {
       onSelect={handleSelect}
       filterFn={(item, query) =>
         item.label.toLowerCase().includes(query.toLowerCase())
-        || item.hint.toLowerCase().includes(query.toLowerCase())
+        || item.description.toLowerCase().includes(query.toLowerCase())
       }
       renderItem={(item, isSelected) => (
-        <box flexDirection="row" width="100%" paddingX={1}>
-          <text selectable={false} fg={isSelected ? "black" : "white"}>
-            {item.label}
-          </text>
-          <box flexGrow={1} />
-          <text selectable={false} fg={isSelected ? "black" : "gray"}>
-            {item.hint}
-          </text>
-        </box>
+        <text selectable={false} fg={isSelected ? "black" : "white"}>
+          {item.label}
+        </text>
       )}
       getKey={(item) => item.id}
       placeholder="Search providers"

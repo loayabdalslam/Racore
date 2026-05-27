@@ -5,11 +5,12 @@
   "workspaces": ["packages/cli"],
   "scripts": {
     "dev:cli": "bun run --watch packages/cli/src/index.tsx",
-    "build:cli": "bun run --filter racore build",
+    "build:cli": "bun run --filter @loai/racore-cli build",
+    "test:cli": "bun run --filter @loai/racore-cli test",
     "link:cli": "bun run build:cli && cd packages/cli && bun link",
-    "version:patch": "npm version patch --workspace racore --no-git-tag-version",
-    "version:minor": "npm version minor --workspace racore --no-git-tag-version",
-    "version:major": "npm version major --workspace racore --no-git-tag-version"
+    "version:patch": "npm version patch --workspace @loai/racore-cli --no-git-tag-version",
+    "version:minor": "npm version minor --workspace @loai/racore-cli --no-git-tag-version",
+    "version:major": "npm version major --workspace @loai/racore-cli --no-git-tag-version"
   },
   "dependencies": {
     "dotenv": "^17.4.2"

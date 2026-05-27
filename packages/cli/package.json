@@ -1,18 +1,18 @@
 {
-  "name": "Racore",
+  "name": "@loai/racore-cli",
   "version": "1.0.1",
   "description": "R'a Core standalone terminal AI coding assistant",
   "module": "src/index.tsx",
   "type": "module",
   "license": "MIT",
   "author": "R'a Core",
-  "homepage": "https://www.npmjs.com/package/racore",
+  "homepage": "https://www.npmjs.com/package/@loai/racore-cli",
   "repository": {
     "type": "git",
-    "url": "https://github.com/loayabdalslam/Racore"
+    "url": "git+https://github.com/loayabdalslam/racore.git"
   },
   "bugs": {
-    "url": "https://github.com/loayabdalslam/Racore/issues"
+    "url": "https://github.com/loayabdalslam/racore/issues"
   },
   "keywords": [
     "cli",
@@ -27,9 +27,7 @@
   },
   "files": [
     "bin",
-    "dist",
-    "src",
-    "README.md"
+    "dist"
   ],
   "bin": {
     "racore": "./bin/racore"
@@ -37,6 +35,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.tsx",
     "build": "bun build src/index.tsx --outdir dist --target bun",
+    "test": "bun test src/lib/*.test.ts",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

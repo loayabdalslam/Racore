@@ -15,6 +15,7 @@ type PromptConfigContextValue = {
   provider: ProviderIdType;
   setProvider: (provider: ProviderIdType) => void;
   model: string;
+  getModelForProvider: (provider: ProviderIdType) => string;
   setModel: (model: string) => void;
 };
 
@@ -57,7 +58,12 @@ export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
 
   const toggleMode = useCallback(() => {
     setModeState((currentMode) => {
-      const nextMode = currentMode === Mode.BUILD ? Mode.PLAN : Mode.BUILD;
+      const nextMode =
+        currentMode === Mode.BUILD
+          ? Mode.PLAN
+          : currentMode === Mode.PLAN
+            ? Mode.ULTRA
+            : Mode.BUILD;
       persist({ mode: nextMode });
       return nextMode;
     });
@@ -84,6 +90,10 @@ export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
     persist({ modelByProvider: nextModels });
   }, [modelByProvider, persist, provider]);
 
+  const getModelForProvider = useCallback((targetProvider: ProviderIdType) => {
+    return modelByProvider[targetProvider] ?? getDefaultModel(targetProvider).id;
+  }, [modelByProvider]);
+
   return (
     <PromptConfigContext.Provider
       value={{
@@ -93,6 +103,7 @@ export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
         provider,
         setProvider,
         model: modelByProvider[provider] ?? getDefaultModel(provider).id,
+        getModelForProvider,
         setModel,
       }}
     >

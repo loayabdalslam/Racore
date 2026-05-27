@@ -8,7 +8,7 @@ const ONBOARDING_LINES = [
   "4. Run bun run dev:cli",
   "5. Open /config and connect your providers",
   "6. Run npm login before publishing",
-  "7. Publish with npm publish --workspace racore --access public",
+  "7. Publish with npm publish --workspace @loai/racore-cli --access public",
   "8. Update CHANGELOG.md before each release",
 ];
 
@@ -27,7 +27,7 @@ export function OnboardingScreen() {
     >
       <box flexDirection="column" gap={1} paddingY={1}>
         {ONBOARDING_LINES.map((line) => (
-          <text key={line}>{line}</text>
+          <text key={line} wrapMode="word">{line}</text>
         ))}
       </box>
     </CenteredPage>

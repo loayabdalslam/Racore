@@ -59,6 +59,8 @@ function groupConsecutiveParts(parts: ClientMessagePart[]): PartGroup[] {
 
 export function BotMessage({ parts, model, mode, durationMs }: Props) {
   const { colors } = useTheme();
+  const modeLabel = mode === Mode.PLAN ? "Plan" : mode === Mode.ULTRA ? "Ultra" : "Build";
+  const modeColor = mode === Mode.PLAN ? colors.planMode : mode === Mode.ULTRA ? colors.info : colors.primary;
 
   return (
     <box width="100%" alignItems="center">
@@ -123,9 +125,9 @@ export function BotMessage({ parts, model, mode, durationMs }: Props) {
 
       <box paddingX={3} paddingY={1} gap={1} width="100%">
         <box flexDirection="row" gap={2}>
-          <text fg={mode === Mode.PLAN ? colors.planMode : colors.primary}>◉</text>
+          <text fg={modeColor}>◉</text>
           <box flexDirection="row" gap={1}>
-            <text>{mode === Mode.PLAN ? "Plan" : "Build"}</text>
+            <text>{modeLabel}</text>
             <text attributes={TextAttributes.DIM} fg={colors.dimSeparator}>›</text>
             <text attributes={TextAttributes.DIM}>{model}</text>
             {durationMs != null ? (

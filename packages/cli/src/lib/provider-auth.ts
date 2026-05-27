@@ -2,10 +2,15 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import open from "open";
 import { AUTH_FILE, ensureAppDirectories } from "./app-paths";
 import { ProviderId, type AuthState, type ProviderAuthState, type ProviderIdType } from "./app-schema";
+import { refreshOpenRouterModels } from "./models";
+import { getProviderDefinition } from "./providers";
 
 const EMPTY_AUTH_STATE: AuthState = {
   [ProviderId.OPENAI]: {},
   [ProviderId.OPENROUTER]: {},
+  [ProviderId.GROQ]: {},
+  [ProviderId.XAI]: {},
+  [ProviderId.DEEPSEEK]: {},
 };
 
 function loadAuthState(): AuthState {
@@ -18,6 +23,9 @@ function loadAuthState(): AuthState {
     return {
       [ProviderId.OPENAI]: parsed.openai ?? {},
       [ProviderId.OPENROUTER]: parsed.openrouter ?? {},
+      [ProviderId.GROQ]: parsed.groq ?? {},
+      [ProviderId.XAI]: parsed.xai ?? {},
+      [ProviderId.DEEPSEEK]: parsed.deepseek ?? {},
     };
   } catch {
     return EMPTY_AUTH_STATE;
@@ -42,6 +50,14 @@ export function saveProviderAuth(provider: ProviderIdType, nextState: ProviderAu
   const current = loadAuthState();
   current[provider] = nextState;
   saveAuthState(current);
+}
+
+export function saveProviderApiKey(provider: ProviderIdType, apiKey: string) {
+  saveProviderAuth(provider, {
+    apiKey: apiKey.trim(),
+    connectedAt: new Date().toISOString(),
+    authType: "api-key",
+  });
 }
 
 export function clearProviderAuth(provider: ProviderIdType) {
@@ -72,10 +88,11 @@ export async function connectOpenRouter() {
   const codeVerifier = toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
   const codeChallenge = await createPkceChallenge(codeVerifier);
   let settled = false;
+  const callbackPort = 3000;
 
   return new Promise<void>((resolve, reject) => {
     const server = Bun.serve({
-      port: 0,
+      port: callbackPort,
       async fetch(req) {
         const url = new URL(req.url);
         if (url.pathname !== "/callback") {
@@ -125,6 +142,7 @@ export async function connectOpenRouter() {
             connectedAt: new Date().toISOString(),
             authType: "oauth",
           });
+          await refreshOpenRouterModels(data.key);
 
           settled = true;
           resolve();
@@ -152,6 +170,7 @@ export async function connectOpenRouter() {
     authorizeUrl.searchParams.set("code_challenge", codeChallenge);
     authorizeUrl.searchParams.set("code_challenge_method", "S256");
     authorizeUrl.searchParams.set("state", nonce);
+    authorizeUrl.searchParams.set("key_label", "racore");
 
     void open(authorizeUrl.toString());
 
@@ -178,4 +197,33 @@ export async function connectOpenAI() {
     connectedAt: new Date().toISOString(),
     authType: "api-key",
   });
+}
+
+function readProviderEnvKey(provider: ProviderIdType) {
+  const envVar = getProviderDefinition(provider).envVar;
+  return process.env[envVar]?.trim();
+}
+
+export async function connectProvider(provider: ProviderIdType) {
+  if (provider === ProviderId.OPENROUTER) {
+    return connectOpenRouter();
+  }
+
+  if (provider === ProviderId.OPENAI) {
+    return connectOpenAI();
+  }
+
+  const definition = getProviderDefinition(provider);
+  void open(definition.browserUrl);
+
+  const envKey = readProviderEnvKey(provider);
+  if (!envKey) {
+    throw new Error(`Opened ${definition.label}. Add ${definition.envVar} or use Save API Key.`);
+  }
+
+  saveProviderApiKey(provider, envKey);
+
+  if (provider === ProviderId.OPENROUTER) {
+    await refreshOpenRouterModels(envKey);
+  }
 }
