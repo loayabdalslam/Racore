@@ -74,79 +74,101 @@ async function createPkceChallenge(verifier: string) {
   return toBase64Url(new Uint8Array(digest));
 }
 
+function getRandomCallbackPort() {
+  const rangeStart = 49_152;
+  const rangeSize = 65_535 - rangeStart;
+  const bytes = crypto.getRandomValues(new Uint16Array(1));
+  return rangeStart + (bytes[0]! % rangeSize);
+}
+
 export async function connectOpenRouter() {
   const nonce = crypto.randomUUID();
   const codeVerifier = toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
   const codeChallenge = await createPkceChallenge(codeVerifier);
   let settled = false;
-  const callbackPort = 3000;
 
   return new Promise<void>((resolve, reject) => {
-    const server = Bun.serve({
-      port: callbackPort,
-      async fetch(req) {
-        const url = new URL(req.url);
-        if (url.pathname !== "/callback") {
-          return new Response("Not found", { status: 404 });
+    let server: ReturnType<typeof Bun.serve> | null = null;
+
+    const callbackHandler = async (req: Request) => {
+      const url = new URL(req.url);
+      if (url.pathname !== "/callback") {
+        return new Response("Not found", { status: 404 });
+      }
+
+      const code = url.searchParams.get("code");
+      const returnedState = url.searchParams.get("state");
+      const error = url.searchParams.get("error");
+
+      if (error) {
+        settled = true;
+        reject(new Error(error));
+        setTimeout(() => server?.stop(), 500);
+        return new Response(`Authentication failed: ${error}`, { status: 400 });
+      }
+
+      if (!code || !returnedState || returnedState !== nonce) {
+        settled = true;
+        reject(new Error("Invalid OpenRouter callback state"));
+        setTimeout(() => server?.stop(), 500);
+        return new Response("Invalid callback state", { status: 400 });
+      }
+
+      try {
+        const exchange = await fetch("https://openrouter.ai/api/v1/auth/keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code,
+            code_verifier: codeVerifier,
+            code_challenge_method: "S256",
+          }),
+        });
+
+        if (!exchange.ok) {
+          throw new Error(await exchange.text());
         }
 
-        const code = url.searchParams.get("code");
-        const returnedState = url.searchParams.get("state");
-        const error = url.searchParams.get("error");
-
-        if (error) {
-          settled = true;
-          reject(new Error(error));
-          setTimeout(() => server.stop(), 500);
-          return new Response(`Authentication failed: ${error}`, { status: 400 });
+        const data = (await exchange.json()) as { key?: string };
+        if (!data.key) {
+          throw new Error("OpenRouter did not return an API key");
         }
 
-        if (!code || !returnedState || returnedState !== nonce) {
-          settled = true;
-          reject(new Error("Invalid OpenRouter callback state"));
-          setTimeout(() => server.stop(), 500);
-          return new Response("Invalid callback state", { status: 400 });
-        }
+        saveProviderAuth(ProviderId.OPENROUTER, {
+          apiKey: data.key,
+          connectedAt: new Date().toISOString(),
+          authType: "oauth",
+        });
+        await refreshOpenRouterModels(data.key);
 
-        try {
-          const exchange = await fetch("https://openrouter.ai/api/v1/auth/keys", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              code,
-              code_verifier: codeVerifier,
-              code_challenge_method: "S256",
-            }),
-          });
+        settled = true;
+        resolve();
+        setTimeout(() => server?.stop(), 500);
+        return new Response("R'a Core connected to OpenRouter. You can close this tab.");
+      } catch (error) {
+        settled = true;
+        reject(error instanceof Error ? error : new Error(String(error)));
+        setTimeout(() => server?.stop(), 500);
+        return new Response("OpenRouter connection failed.", { status: 400 });
+      }
+    };
 
-          if (!exchange.ok) {
-            throw new Error(await exchange.text());
-          }
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        server = Bun.serve({
+          port: getRandomCallbackPort(),
+          fetch: callbackHandler,
+        });
+        break;
+      } catch {
+        server = null;
+      }
+    }
 
-          const data = (await exchange.json()) as { key?: string };
-          if (!data.key) {
-            throw new Error("OpenRouter did not return an API key");
-          }
-
-          saveProviderAuth(ProviderId.OPENROUTER, {
-            apiKey: data.key,
-            connectedAt: new Date().toISOString(),
-            authType: "oauth",
-          });
-          await refreshOpenRouterModels(data.key);
-
-          settled = true;
-          resolve();
-          setTimeout(() => server.stop(), 500);
-          return new Response("R'a Core connected to OpenRouter. You can close this tab.");
-        } catch (error) {
-          settled = true;
-          reject(error instanceof Error ? error : new Error(String(error)));
-          setTimeout(() => server.stop(), 500);
-          return new Response("OpenRouter connection failed.", { status: 400 });
-        }
-      },
-    });
+    if (!server) {
+      reject(new Error("Failed to start local callback server on a random high port"));
+      return;
+    }
 
     const port = server.port;
     if (typeof port !== "number") {
@@ -168,7 +190,7 @@ export async function connectOpenRouter() {
     setTimeout(() => {
       if (!settled) {
         settled = true;
-        server.stop();
+        server?.stop();
         reject(new Error("OpenRouter login timed out"));
       }
     }, 5 * 60 * 1000).unref();
