@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { TextAttributes } from "@opentui/core";
+import { useKeyboard } from "@opentui/react";
 import { InputBar } from "../components/input-bar";
 import { BotMessage, ErrorMessage, UserMessage } from "../components/messages";
 import { Spinner } from "../components/spinner";
@@ -8,13 +9,14 @@ import { useChat, type Message } from "../hooks/use-chat";
 import { type ModeType, type SessionRecord } from "../lib/app-schema";
 import { usePromptConfig } from "../providers/prompt-config";
 import { useTheme } from "../providers/theme";
+import { useKeyboardLayer } from "../providers/keyboard-layer";
 import { createSession, listSessions } from "../lib/session-store";
 
 function shortTitle(title: string) {
   return title.length > 24 ? `${title.slice(0, 21)}...` : title;
 }
 
-function ChatMessage({ msg }: { msg: Message }) {
+function ChatMessage({ msg, displayModel }: { msg: Message; displayModel: string }) {
   if (msg.role === "user") {
     const text = msg.parts
       .filter((part) => part.type === "text")
@@ -27,7 +29,7 @@ function ChatMessage({ msg }: { msg: Message }) {
   return (
     <BotMessage
       parts={msg.parts}
-      model={msg.metadata?.model ?? "unknown"}
+      model={displayModel}
       mode={msg.metadata?.mode ?? "BUILD"}
       durationMs={msg.metadata?.durationMs}
       streaming={false}
@@ -69,7 +71,7 @@ function InlineChat({
     <box flexDirection="column" flexGrow={1} width="100%" gap={1}>
       <scrollbox flexGrow={1} width="100%" stickyScroll stickyStart="bottom">
         <box flexDirection="column" gap={1} width="100%">
-          {messages.map((msg) => <ChatMessage key={msg.id} msg={msg} />)}
+          {messages.map((msg) => <ChatMessage key={msg.id} msg={msg} displayModel={model} />)}
           {status === "streaming" || status === "submitted" ? (
             <box paddingX={2}>
               <Spinner mode={mode} />
@@ -85,12 +87,16 @@ function InlineChat({
 export function Home() {
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const { isTopLayer } = useKeyboardLayer();
   const { mode, model, provider } = usePromptConfig();
   const [sessionVersion, setSessionVersion] = useState(0);
   const [activeSession, setActiveSession] = useState<SessionRecord | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<{ message: string; mode: ModeType; model: string } | null>(null);
+  const [focusArea, setFocusArea] = useState<"chat" | "sidebar">("chat");
+  const [sidebarIndex, setSidebarIndex] = useState(0);
   const submitHandlerRef = useRef<((text: string) => void) | null>(null);
   const sessions = useMemo(() => listSessions().slice(0, 12), [sessionVersion]);
+  const sidebarItemCount = 1 + sessions.length;
 
   const handleSubmit = useCallback(
     (text: string) => {
@@ -111,6 +117,58 @@ export function Home() {
   const setInlineSubmitHandler = useCallback((handler: (text: string) => void) => {
     submitHandlerRef.current = handler;
   }, []);
+
+  const openSidebarItem = useCallback((index: number) => {
+    if (index === 0) {
+      setActiveSession(null);
+      setInitialPrompt(null);
+      submitHandlerRef.current = null;
+      setFocusArea("chat");
+      return;
+    }
+
+    const session = sessions[index - 1];
+    if (!session) return;
+
+    setActiveSession(session);
+    setInitialPrompt(null);
+    setFocusArea("chat");
+  }, [sessions]);
+
+  useKeyboard((key) => {
+    if (!isTopLayer("base")) return;
+
+    if (key.name === "left") {
+      key.preventDefault();
+      setFocusArea("sidebar");
+      return;
+    }
+
+    if (key.name === "right") {
+      key.preventDefault();
+      setFocusArea("chat");
+      return;
+    }
+
+    if (focusArea !== "sidebar") return;
+
+    if (key.name === "up") {
+      key.preventDefault();
+      setSidebarIndex((current) => Math.max(0, current - 1));
+      return;
+    }
+
+    if (key.name === "down") {
+      key.preventDefault();
+      setSidebarIndex((current) => Math.min(Math.max(0, sidebarItemCount - 1), current + 1));
+      return;
+    }
+
+    if (key.name === "return" || key.name === "enter") {
+      key.preventDefault();
+      openSidebarItem(sidebarIndex);
+    }
+  });
 
   return (
     <box
@@ -140,13 +198,14 @@ export function Home() {
             setActiveSession(null);
             setInitialPrompt(null);
             submitHandlerRef.current = null;
+            setSidebarIndex(0);
           }}
           width="100%"
-          backgroundColor={colors.selection}
+          backgroundColor={focusArea === "sidebar" && sidebarIndex === 0 ? colors.selection : colors.surface}
           paddingX={1}
           paddingY={1}
         >
-          <text color={colors.selectionText}>New chat</text>
+          <text color={focusArea === "sidebar" && sidebarIndex === 0 ? colors.selectionText : "white"}>New chat</text>
         </box>
 
         <text attributes={TextAttributes.DIM}>Sessions</text>
@@ -158,22 +217,29 @@ export function Home() {
               </box>
             ) : null}
 
-            {sessions.map((session) => (
+            {sessions.map((session, index) => {
+              const itemIndex = index + 1;
+              const isSelected = focusArea === "sidebar" && sidebarIndex === itemIndex;
+              const isActive = activeSession?.id === session.id;
+
+              return (
               <box
                 key={session.id}
                 onClick={() => {
                   setActiveSession(session);
                   setInitialPrompt(null);
+                  setSidebarIndex(itemIndex);
                 }}
                 width="100%"
                 overflow="hidden"
                 paddingX={1}
                 paddingY={1}
-                backgroundColor={colors.surface}
+                backgroundColor={isSelected ? colors.selection : isActive ? colors.dialogSurface : colors.surface}
               >
-                <text>{shortTitle(session.title)}</text>
+                <text color={isSelected ? colors.selectionText : "white"}>{shortTitle(session.title)}</text>
               </box>
-            ))}
+              );
+            })}
           </box>
         </scrollbox>
 
@@ -220,7 +286,7 @@ export function Home() {
         )}
 
         <box width="100%" maxWidth={78} flexDirection="column" gap={1}>
-          <InputBar onSubmit={handleSubmit} />
+          <InputBar onSubmit={handleSubmit} active={focusArea === "chat"} />
           <box flexDirection="row" justifyContent="space-between" width="100%" paddingX={1}>
             <box flexDirection="row" gap={2}>
               <text color={colors.accent} onClick={() => navigate("/config")}>/config</text>
@@ -228,6 +294,9 @@ export function Home() {
               <text color={colors.accent} onClick={() => navigate("/releases")}>/releases</text>
             </box>
             <box flexDirection="row" gap={1}>
+              <text>{focusArea === "sidebar" ? "right" : "left"}</text>
+              <text attributes={TextAttributes.DIM}>{focusArea === "sidebar" ? "chat" : "sessions"}</text>
+              <text attributes={TextAttributes.DIM}> | </text>
               <text>tab</text>
               <text attributes={TextAttributes.DIM}>mode</text>
             </box>

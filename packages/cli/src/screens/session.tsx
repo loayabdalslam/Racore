@@ -21,7 +21,7 @@ const sessionLocationSchema = z.object({
   }).optional(),
 });
 
-function ChatMessage({ msg }: { msg: Message }) {
+function ChatMessage({ msg, streaming = false }: { msg: Message; streaming?: boolean }) {
   if (msg.role === "user") {
     const text = msg.parts
       .filter((part) => part.type === "text")
@@ -37,7 +37,7 @@ function ChatMessage({ msg }: { msg: Message }) {
       model={msg.metadata?.model ?? "unknown"}
       mode={msg.metadata?.mode ?? "BUILD"}
       durationMs={msg.metadata?.durationMs}
-      streaming={false}
+      streaming={streaming}
     />
   );
 }
@@ -81,7 +81,13 @@ function SessionChat({
       loading={status === "submitted" || status === "streaming"}
       interruptible={status === "submitted" || status === "streaming"}
     >
-      {messages.map((msg) => <ChatMessage key={msg.id} msg={msg} />)}
+      {messages.map((msg, index) => (
+        <ChatMessage
+          key={msg.id}
+          msg={msg}
+          streaming={status === "streaming" && index === messages.length - 1 && msg.role === "assistant"}
+        />
+      ))}
       {error ? <ErrorMessage message={error.message} /> : null}
     </SessionShell>
   );

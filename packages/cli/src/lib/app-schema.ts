@@ -22,6 +22,10 @@ export type ProviderModel = {
   label: string;
   capability: string;
   recommended?: boolean;
+  supportedParameters?: string[];
+  supportsReasoning?: boolean;
+  supportsStreaming?: boolean;
+  supportsTools?: boolean;
 };
 
 export const toolInputSchemas = {

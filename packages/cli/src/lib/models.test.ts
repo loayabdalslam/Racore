@@ -1,6 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { ProviderId } from "./app-schema";
-import { getDefaultModel, getProviderModels, mergeProviderModels, toOpenRouterToolModels } from "./models";
+import {
+  DEFAULT_OPENROUTER_MODEL_ID,
+  getDefaultModel,
+  getModelCapabilities,
+  getProviderModels,
+  mergeProviderModels,
+  toOpenRouterToolModels,
+} from "./models";
 
 describe("models", () => {
   it("has at least one model for every provider", () => {
@@ -14,6 +21,10 @@ describe("models", () => {
       const model = getDefaultModel(provider);
       expect(model.provider).toBe(provider);
     }
+  });
+
+  it("uses Qwen3 Coder Free as the OpenRouter default", () => {
+    expect(getDefaultModel(ProviderId.OPENROUTER).id).toBe(DEFAULT_OPENROUTER_MODEL_ID);
   });
 
   it("merges fetched OpenRouter models without dropping builtin metadata", () => {
@@ -81,5 +92,25 @@ describe("models", () => {
       "google/gemma-4-26b-a4b-it:free",
       "anthropic/claude-sonnet-4",
     ]);
+  });
+
+  it("streams free OpenRouter models through the OpenRouter provider", () => {
+    const capabilities = getModelCapabilities(DEFAULT_OPENROUTER_MODEL_ID);
+
+    expect(capabilities.supportsTools).toBe(true);
+    expect(capabilities.supportsStreaming).toBe(true);
+  });
+
+  it("detects reasoning and streaming support from fetched metadata", () => {
+    const mapped = toOpenRouterToolModels([
+      {
+        id: "reasoning/model",
+        name: "Reasoning Model",
+        supported_parameters: ["tools", "reasoning", "stream"],
+      },
+    ]);
+
+    expect(mapped[0]?.supportsReasoning).toBe(true);
+    expect(mapped[0]?.supportsStreaming).toBe(true);
   });
 });

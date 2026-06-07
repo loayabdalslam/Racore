@@ -7,12 +7,12 @@ import { Mode, type ModeType } from "./app-schema";
 
 const INDEX_VERSION = 1;
 const MEMORY_VERSION = 1;
-const INDEX_MEMORY_TTL_MS = 20_000;
+const INDEX_MEMORY_TTL_MS = 5 * 60_000;
 const MAX_INDEXED_FILES = 4_000;
 const MAX_ANALYZED_FILE_BYTES = 220_000;
 const MAX_SYMBOLS_PER_FILE = 50;
 const MAX_IMPORTS_PER_FILE = 40;
-const MAX_CONTEXT_CHARS = 4_000;
+const MAX_CONTEXT_CHARS = 1_800;
 
 const TEXT_EXTENSIONS = new Set([
   ".cjs",

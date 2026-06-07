@@ -38,13 +38,29 @@ export function useChat(sessionId: string, initialMessages: Message[]) {
     setError(null);
 
     try {
+      let streamingAssistantId: string | null = null;
       const assistantMessage = await submitChat({
         messages: pendingMessages,
         mode: params.mode,
         model: params.model,
+        onUpdate: (partialMessage) => {
+          streamingAssistantId = partialMessage.id;
+          setMessages((currentMessages) => {
+            const existingIndex = currentMessages.findIndex((message) => message.id === partialMessage.id);
+            if (existingIndex === -1) {
+              return [...pendingMessages, partialMessage];
+            }
+
+            const nextMessages = [...currentMessages];
+            nextMessages[existingIndex] = partialMessage;
+            return nextMessages;
+          });
+        },
       });
 
-      const nextMessages = [...pendingMessages, assistantMessage];
+      const nextMessages = streamingAssistantId
+        ? [...pendingMessages, { ...assistantMessage, id: streamingAssistantId }]
+        : [...pendingMessages, assistantMessage];
       setMessages(nextMessages);
       appendMessages(sessionId, nextMessages);
       setStatus("ready");

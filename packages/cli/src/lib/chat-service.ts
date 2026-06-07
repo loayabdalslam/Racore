@@ -1,5 +1,5 @@
-import { APICallError, generateText, tool, type CoreMessage } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { APICallError, generateText, streamText, stepCountIs, tool, type ModelMessage, type StepResult, type ToolSet } from "ai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   Mode,
   ProviderId,
@@ -10,8 +10,15 @@ import {
 } from "./app-schema";
 import { formatAgentAccelerationContext, getAgentAccelerationContext } from "./agent-accelerator";
 import { executeLocalTool } from "./local-tools";
-import { getProviderModels } from "./models";
+import { getModelCapabilities, getProviderModels } from "./models";
 import { getProviderAuth } from "./provider-auth";
+
+const FAST_OPENROUTER_MODELS = [
+  "google/gemini-2.5-flash",
+  "openai/gpt-4o-mini",
+  "anthropic/claude-3.5-haiku",
+  "meta-llama/llama-3.1-8b-instruct:free",
+];
 
 function buildSystemPrompt(mode: ModeType, useTools: boolean, accelerationContext?: string | null) {
   if (!useTools) {
@@ -59,15 +66,12 @@ function getModel(modelId: string) {
     throw new Error("OpenRouter is not connected");
   }
 
-  const openrouter = createOpenAI({
+  const openrouter = createOpenRouter({
     apiKey: auth.apiKey,
-    baseURL: "https://openrouter.ai/api/v1",
-    headers: {
-      "HTTP-Referer": "https://github.com/loayabdalslam/racore",
-      "X-Title": "R'a Core",
-    },
+    appUrl: "https://github.com/loayabdalslam/racore",
+    appName: "R'a Core",
   });
-  return openrouter(modelId);
+  return openrouter.chat(modelId);
 }
 
 function readProviderError(data: unknown): string | null {
@@ -134,6 +138,31 @@ function shouldTryOpenRouterFallback(error: unknown) {
   return apiError?.statusCode === 429 || (apiError?.statusCode != null && apiError.statusCode >= 500);
 }
 
+function shouldTryNextAutoRoutedModel(error: unknown, modelId: string, selectedModel: string) {
+  if (modelId === selectedModel) return false;
+
+  const apiError = getApiCallError(error);
+  return apiError?.statusCode === 400 || apiError?.statusCode === 404 || apiError?.statusCode === 422;
+}
+
+function isNoOutputGeneratedError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no output generated/i.test(message) || /check the stream for errors/i.test(message);
+}
+
+function shouldRetryWithoutTools(error: unknown) {
+  const apiError = getApiCallError(error);
+  if (!apiError || apiError.statusCode !== 400) return false;
+
+  const message = [
+    readProviderError(apiError.data),
+    parseProviderErrorBody(apiError.responseBody),
+    apiError.message,
+  ].filter(Boolean).join("\n");
+
+  return /invalid_prompt|invalid responses api request|tool|tools|function/i.test(message);
+}
+
 function getLatestUserText(messages: ChatMessage[]) {
   const latest = [...messages].reverse().find((message) => message.role === "user");
   return latest?.parts
@@ -162,23 +191,176 @@ function getOpenRouterCandidateModels(selectedModel: string) {
     .slice(0, 3);
 }
 
-function toCoreMessages(messages: ChatMessage[]): CoreMessage[] {
-  return messages.map((message) => ({
-    role: message.role,
-    content: message.parts
+function shouldUseFastModel(mode: ModeType, text: string) {
+  if (mode !== Mode.BUILD) return false;
+
+  const normalized = text.toLowerCase();
+  const heavyIntent = /\b(architecture|database|migration|security|auth|refactor|entire|whole|complex|ultra|deep|plan)\b/.test(
+    normalized,
+  );
+
+  return !heavyIntent && text.length < 1_500;
+}
+
+function getRoutedOpenRouterCandidateModels(selectedModel: string, mode: ModeType, text: string) {
+  const baseCandidates = getOpenRouterCandidateModels(selectedModel);
+  if (!shouldUseFastModel(mode, text)) return baseCandidates;
+
+  const available = new Set(getProviderModels(ProviderId.OPENROUTER).map((model) => model.id));
+  const fastCandidates = FAST_OPENROUTER_MODELS.filter((modelId) => available.has(modelId) || !modelId.endsWith(":free"));
+
+  return [...new Set([...baseCandidates, ...fastCandidates])].slice(0, 4);
+}
+
+function toModelMessages(messages: ChatMessage[]): ModelMessage[] {
+  const modelMessages: ModelMessage[] = [];
+
+  for (const message of messages) {
+    const text = message.parts
       .filter((part) => part.type === "text")
       .map((part) => part.text)
-      .join("\n"),
-  }));
+      .join("\n")
+      .trim();
+
+    if (message.role === "user") {
+      if (text) {
+        modelMessages.push({ role: "user", content: text });
+      }
+      continue;
+    }
+
+    const toolParts = message.parts.filter((part) => part.type.startsWith("tool-"));
+    if (toolParts.length === 0) {
+      if (text) {
+        modelMessages.push({ role: "assistant", content: text });
+      }
+      continue;
+    }
+
+    modelMessages.push({
+      role: "assistant",
+      content: [
+        ...(text ? [{ type: "text" as const, text }] : []),
+        ...toolParts.map((part) => ({
+          type: "tool-call" as const,
+          toolCallId: part.toolCallId,
+          toolName: part.type.slice("tool-".length),
+          input: part.input ?? {},
+        })),
+      ],
+    });
+
+    modelMessages.push({
+      role: "tool",
+      content: toolParts.map((part) => {
+        const rawOutput = part.output ?? part.errorText ?? "";
+        const isError = part.state === "output-error";
+        return {
+          type: "tool-result" as const,
+          toolCallId: part.toolCallId,
+          toolName: part.type.slice("tool-".length),
+          output: typeof rawOutput === "string"
+            ? { type: isError ? "error-text" as const : "text" as const, value: rawOutput }
+            : { type: isError ? "error-json" as const : "json" as const, value: rawOutput },
+          isError,
+        };
+      }),
+    });
+  }
+
+  return modelMessages;
+}
+
+function buildStreamingParts(reasoningText: string, text: string): ChatMessage["parts"] {
+  return [
+    reasoningText ? { type: "reasoning" as const, text: reasoningText } : null,
+    { type: "text" as const, text },
+  ].filter((part): part is ChatMessage["parts"][number] => part !== null);
+}
+
+async function streamModelText(params: {
+  model: ReturnType<typeof getModel>;
+  system: string;
+  messages: ModelMessage[];
+  maxSteps: number;
+  tools?: ToolSet;
+  supportsStreaming: boolean;
+  supportsReasoning: boolean;
+  startTime: number;
+  streamingMessage: ChatMessage;
+  onUpdate?: (message: ChatMessage) => void;
+}) {
+  let streamedText = "";
+  let reasoningText = "";
+  let steps: StepResult<ToolSet>[] | null = null;
+
+  if (!params.supportsStreaming) {
+    const result = await generateText({
+      model: params.model,
+      system: params.system,
+      messages: params.messages,
+      tools: params.tools,
+      maxSteps: params.maxSteps,
+      maxRetries: 0,
+    });
+
+    streamedText = result.text;
+    if (streamedText) {
+      params.streamingMessage.parts = buildStreamingParts("", streamedText);
+      params.streamingMessage.metadata = {
+        ...params.streamingMessage.metadata,
+        durationMs: Date.now() - params.startTime,
+      };
+      params.onUpdate?.(params.streamingMessage);
+    }
+
+    steps = result.steps as StepResult<ToolSet>[];
+    return { streamedText, reasoningText, steps };
+  }
+
+  const result = streamText({
+    model: params.model,
+    system: params.system,
+    messages: params.messages,
+    tools: params.tools,
+    stopWhen: stepCountIs(params.maxSteps),
+    maxRetries: 0,
+  });
+
+  for await (const part of result.fullStream) {
+    if (part.type === "text-delta") {
+      streamedText += part.text;
+      params.streamingMessage.parts = buildStreamingParts(reasoningText, streamedText);
+      params.streamingMessage.metadata = {
+        ...params.streamingMessage.metadata,
+        durationMs: Date.now() - params.startTime,
+      };
+      params.onUpdate?.(params.streamingMessage);
+    } else if (params.supportsReasoning && part.type === "reasoning-delta") {
+      reasoningText += part.text;
+      params.streamingMessage.parts = buildStreamingParts(reasoningText, streamedText);
+      params.streamingMessage.metadata = {
+        ...params.streamingMessage.metadata,
+        durationMs: Date.now() - params.startTime,
+      };
+      params.onUpdate?.(params.streamingMessage);
+    } else if (part.type === "error") {
+      throw part.error;
+    }
+  }
+
+  steps = await result.steps;
+  return { streamedText, reasoningText, steps };
 }
 
 export async function submitChat(params: {
   messages: ChatMessage[];
   mode: ModeType;
   model: string;
+  onUpdate?: (message: ChatMessage) => void;
 }) {
   const startTime = Date.now();
-  const coreMessages = toCoreMessages(params.messages);
+  const coreMessages = toModelMessages(params.messages);
   const latestUserText = getLatestUserText(params.messages);
   const useTools = !isCasualPrompt(latestUserText);
   const maxSteps = !useTools
@@ -196,17 +378,35 @@ export async function submitChat(params: {
   const useHeavyTools = params.mode === Mode.ULTRA;
   const usePlanningTools = params.mode === Mode.PLAN || params.mode === Mode.ULTRA;
 
-  const modelIds = getOpenRouterCandidateModels(params.model);
+  const modelIds = getRoutedOpenRouterCandidateModels(params.model, params.mode, latestUserText);
 
   let usedModelId = params.model;
-  let result: Awaited<ReturnType<typeof generateText>> | null = null;
+  let usedSupportsReasoning = false;
+  let steps: StepResult<ToolSet>[] | null = null;
+  let streamedText = "";
+  let reasoningText = "";
   const errors: Error[] = [];
+  const streamingMessage: ChatMessage = {
+    id: crypto.randomUUID(),
+    role: "assistant",
+    parts: [{ type: "text", text: "" }],
+    metadata: {
+      mode: params.mode,
+      provider: ProviderId.OPENROUTER,
+      model: usedModelId,
+    },
+  };
 
   for (const modelId of modelIds) {
     usedModelId = modelId;
     const model = getModel(modelId);
+    const capabilities = getModelCapabilities(modelId);
+    const useModelTools = useTools && capabilities.supportsTools;
+    usedSupportsReasoning = capabilities.supportsReasoning;
+    streamedText = "";
+    reasoningText = "";
 
-    const tools = useTools ? {
+    const tools = useModelTools ? {
     ...(usePlanningTools ? {
       agentPlan: tool({
       inputSchema: toolInputSchemas.agentPlan,
@@ -306,26 +506,104 @@ export async function submitChat(params: {
     } : undefined;
 
     try {
-      result = await generateText({
+      streamingMessage.metadata = {
+        ...streamingMessage.metadata,
+        model: modelId,
+      };
+
+      const result = await streamModelText({
         model,
-        system: buildSystemPrompt(params.mode, useTools, accelerationContext),
+        system: buildSystemPrompt(params.mode, useModelTools, accelerationContext),
         messages: coreMessages,
-        tools,
         maxSteps,
-        maxRetries: 0,
+        tools,
+        supportsStreaming: capabilities.supportsStreaming,
+        supportsReasoning: capabilities.supportsReasoning,
+        startTime,
+        streamingMessage,
+        onUpdate: params.onUpdate,
       });
+
+      streamedText = result.streamedText;
+      reasoningText = result.reasoningText;
+      steps = result.steps;
       break;
     } catch (error) {
+      if (useModelTools && shouldRetryWithoutTools(error)) {
+        try {
+          const retry = await streamModelText({
+            model,
+            system: buildSystemPrompt(params.mode, false, accelerationContext),
+            messages: coreMessages,
+            maxSteps: 1,
+            supportsStreaming: capabilities.supportsStreaming,
+            supportsReasoning: capabilities.supportsReasoning,
+            startTime,
+            streamingMessage,
+            onUpdate: params.onUpdate,
+          });
+
+          streamedText = retry.streamedText;
+          reasoningText = retry.reasoningText;
+          steps = retry.steps;
+          break;
+        } catch (retryError) {
+          const formattedRetry = formatChatError(retryError, modelId);
+          errors.push(formattedRetry);
+
+          if (!shouldTryOpenRouterFallback(retryError) && !shouldTryNextAutoRoutedModel(retryError, modelId, params.model)) {
+            throw formattedRetry;
+          }
+
+          continue;
+        }
+      }
+
+      if (isNoOutputGeneratedError(error)) {
+        try {
+          const fallback = await generateText({
+            model,
+            system: buildSystemPrompt(params.mode, useModelTools, accelerationContext),
+            messages: coreMessages,
+            tools,
+            maxSteps,
+            maxRetries: 0,
+          });
+
+          streamedText = fallback.text;
+          if (streamedText) {
+            streamingMessage.parts = buildStreamingParts("", streamedText);
+            streamingMessage.metadata = {
+              ...streamingMessage.metadata,
+              durationMs: Date.now() - startTime,
+            };
+            params.onUpdate?.(streamingMessage);
+          }
+
+          steps = fallback.steps as StepResult<ToolSet>[];
+          break;
+        } catch (fallbackError) {
+          const formattedFallback = formatChatError(fallbackError, modelId);
+          errors.push(formattedFallback);
+
+          if (!shouldTryOpenRouterFallback(fallbackError) && !shouldTryNextAutoRoutedModel(fallbackError, modelId, params.model)) {
+            throw formattedFallback;
+          }
+
+          continue;
+        }
+      }
+
       const formatted = formatChatError(error, modelId);
       errors.push(formatted);
 
-      if (!shouldTryOpenRouterFallback(error)) {
+      if (!shouldTryOpenRouterFallback(error) && !shouldTryNextAutoRoutedModel(error, modelId, params.model)) {
         throw formatted;
       }
     }
   }
 
-  if (!result) {
+  if (!steps) {
     throw new Error(
       [
         "All OpenRouter fallback models failed.",
@@ -336,8 +614,8 @@ export async function submitChat(params: {
 
   const assistantParts: ChatMessage["parts"] = [];
 
-  for (const [stepIndex, step] of result.steps.entries()) {
-    if (typeof step.reasoning === "string" && step.reasoning.length > 0) {
+  for (const [stepIndex, step] of steps.entries()) {
+    if (usedSupportsReasoning && typeof step.reasoning === "string" && step.reasoning.length > 0) {
       assistantParts.push({ type: "reasoning", text: step.reasoning });
     }
 
@@ -358,8 +636,8 @@ export async function submitChat(params: {
     }
   }
 
-  if (assistantParts.length === 0 && result.text) {
-    assistantParts.push({ type: "text", text: result.text });
+  if (assistantParts.length === 0 && streamedText) {
+    assistantParts.push({ type: "text", text: streamedText });
   }
 
   const metadata: MessageMetadata = {

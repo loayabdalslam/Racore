@@ -74,12 +74,7 @@ async function createPkceChallenge(verifier: string) {
   return toBase64Url(new Uint8Array(digest));
 }
 
-function getRandomCallbackPort() {
-  const rangeStart = 49_152;
-  const rangeSize = 65_535 - rangeStart;
-  const bytes = crypto.getRandomValues(new Uint16Array(1));
-  return rangeStart + (bytes[0]! % rangeSize);
-}
+const OPENROUTER_LOCAL_CALLBACK_PORTS = [3000, 3100, 3210, 8787] as const;
 
 export async function connectOpenRouter() {
   const nonce = crypto.randomUUID();
@@ -153,10 +148,10 @@ export async function connectOpenRouter() {
       }
     };
 
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (const port of OPENROUTER_LOCAL_CALLBACK_PORTS) {
       try {
         server = Bun.serve({
-          port: getRandomCallbackPort(),
+          port,
           fetch: callbackHandler,
         });
         break;
@@ -166,7 +161,7 @@ export async function connectOpenRouter() {
     }
 
     if (!server) {
-      reject(new Error("Failed to start local callback server on a random high port"));
+      reject(new Error("Could not start an OpenRouter callback server. Tried ports 3000, 3100, 3210, and 8787."));
       return;
     }
 

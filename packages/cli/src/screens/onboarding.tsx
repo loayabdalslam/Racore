@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { TextAttributes } from "@opentui/core";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { useNavigate } from "react-router";
 import { AppShell } from "../components/app-shell";
-import { getProviderModels } from "../lib/models";
-import { connectProvider } from "../lib/provider-auth";
+import { DEFAULT_OPENROUTER_MODEL_ID } from "../lib/models";
+import { saveConfig } from "../lib/config-store";
+import { connectProvider, isProviderConnected } from "../lib/provider-auth";
 import { getProviderDefinition } from "../lib/providers";
 import { useKeyboardLayer } from "../providers/keyboard-layer";
 import { usePromptConfig } from "../providers/prompt-config";
@@ -12,12 +13,12 @@ import { useTheme } from "../providers/theme";
 import { useToast } from "../providers/toast";
 import { THEMES, type Theme } from "../theme";
 
-type OnboardingStep = "theme" | "login" | "model";
+type OnboardingStep = "theme" | "login" | "finish";
 
 const STEPS: Array<{ id: OnboardingStep; label: string }> = [
   { id: "theme", label: "Theme" },
   { id: "login", label: "Login" },
-  { id: "model", label: "Model" },
+  { id: "finish", label: "Finish" },
 ];
 
 function OptionRow({
@@ -66,12 +67,12 @@ export function OnboardingScreen() {
   const dimensions = useTerminalDimensions();
   const { isTopLayer } = useKeyboardLayer();
   const { colors, currentTheme, setTheme, fontSize } = useTheme();
-  const { provider, setProvider, model, setModel } = usePromptConfig();
+  const { provider, setProvider, mode, model, setModel } = usePromptConfig();
+  const [loginConnected, setLoginConnected] = useState(() => isProviderConnected(provider));
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const step = STEPS[stepIndex]!;
-  const models = useMemo(() => getProviderModels(provider), [provider]);
   const contentHeight = Math.max(12, Math.min(20, dimensions.height - 13));
   const rowHeight = 4;
   const itemsLength =
@@ -79,22 +80,37 @@ export function OnboardingScreen() {
       ? THEMES.length
       : step.id === "login"
         ? 1
-        : models.length;
-  const footerIndex = itemsLength;
+        : 0;
+  const continueIndex = itemsLength;
   const centeredScrollTop = Math.max(
     0,
     selectedIndex * rowHeight - Math.floor(contentHeight / 2) + Math.ceil(rowHeight / 2),
   );
 
+  const finishOnboarding = () => {
+    if (model !== DEFAULT_OPENROUTER_MODEL_ID) {
+      setModel(DEFAULT_OPENROUTER_MODEL_ID);
+    }
+    saveConfig({
+      activeProvider: provider,
+      mode,
+      modelByProvider: {
+        [provider]: DEFAULT_OPENROUTER_MODEL_ID,
+      },
+    });
+    toast.show({ variant: "success", message: "Onboarding complete." });
+    navigate("/");
+  };
+
   const chooseCurrent = async () => {
-    if (selectedIndex === footerIndex) {
-      if (stepIndex === STEPS.length - 1) {
-        toast.show({ variant: "success", message: "Onboarding complete." });
-        navigate("/");
-      } else {
-        setStepIndex((current) => current + 1);
-        setSelectedIndex(0);
-      }
+    if (step.id === "finish") {
+      finishOnboarding();
+      return;
+    }
+
+    if (selectedIndex === continueIndex) {
+      setStepIndex((current) => Math.min(STEPS.length - 1, current + 1));
+      setSelectedIndex(0);
       return;
     }
 
@@ -103,6 +119,7 @@ export function OnboardingScreen() {
       try {
         await connectProvider(provider);
         setProvider(provider);
+        setLoginConnected(true);
         toast.show({ variant: "success", message: `${definition.label} connected.` });
       } catch (error) {
         toast.show({
@@ -117,11 +134,6 @@ export function OnboardingScreen() {
       setTheme(THEMES[selectedIndex] as Theme);
       return;
     }
-
-    const nextModel = models[selectedIndex]?.id;
-    if (nextModel) {
-      setModel(nextModel);
-    }
   };
 
   useKeyboard((key) => {
@@ -135,7 +147,7 @@ export function OnboardingScreen() {
 
     if (key.name === "down") {
       key.preventDefault();
-      setSelectedIndex((current) => Math.min(footerIndex, current + 1));
+      setSelectedIndex((current) => Math.min(continueIndex, current + 1));
       return;
     }
 
@@ -186,7 +198,7 @@ export function OnboardingScreen() {
       </box>
       <box width="100%" justifyContent="center">
         <text fg={colors.dimSeparator} wrapMode="word" textAlign="center">
-          First run setup. Pick a theme, connect OpenRouter, and choose a model.
+          First run setup. Pick a theme and connect OpenRouter. Default model: {DEFAULT_OPENROUTER_MODEL_ID}.
         </text>
       </box>
       <box width="100%" flexDirection="row" justifyContent="center" gap={2}>
@@ -220,39 +232,43 @@ export function OnboardingScreen() {
             }}
           />
         ))}
-      {step.id === "model" &&
-        models.map((item, index) => (
-          <OptionRow
-            key={item.id}
-            title={item.label}
-            description={`${getProviderDefinition(item.provider).shortLabel}: ${item.capability}`}
-            selected={selectedIndex === index}
-            active={item.id === model}
-            onSelect={() => {
-              setSelectedIndex(index);
-              setModel(item.id);
-            }}
-          />
-        ))}
       {step.id === "login" && (
         <OptionRow
           title={`${getProviderDefinition(provider).shortLabel} CLI login`}
-          description="Start OpenRouter browser login and local key exchange."
+          description={
+            loginConnected
+              ? "OpenRouter is connected. Continue to finish onboarding."
+              : "Start OpenRouter browser login and local key exchange."
+          }
           selected={selectedIndex === 0}
-          active={false}
+          active={loginConnected}
           onSelect={() => {
             setSelectedIndex(0);
             void chooseCurrent();
           }}
         />
       )}
-      <OptionRow
-        title={stepIndex === STEPS.length - 1 ? "Finish onboarding" : "Continue"}
-        description={stepIndex === STEPS.length - 1 ? "Go to the home screen." : `Next: ${STEPS[stepIndex + 1]?.label}`}
-        selected={selectedIndex === footerIndex}
-        active={false}
-        onSelect={chooseCurrent}
-      />
+      {step.id === "finish" && (
+        <OptionRow
+          title="Finish onboarding"
+          description={`Save ~/.racore/config.json and start with ${DEFAULT_OPENROUTER_MODEL_ID}.`}
+          selected={selectedIndex === 0}
+          active={true}
+          onSelect={finishOnboarding}
+        />
+      )}
+      {step.id !== "finish" && (
+        <OptionRow
+          title="Continue"
+          description={`Next: ${STEPS[stepIndex + 1]?.label}`}
+          selected={selectedIndex === continueIndex}
+          active={false}
+          onSelect={() => {
+            setStepIndex((current) => Math.min(STEPS.length - 1, current + 1));
+            setSelectedIndex(0);
+          }}
+        />
+      )}
       <box width="100%" justifyContent="center">
         <text attributes={TextAttributes.DIM}>
           Up/Down to move. Enter to choose. Left/Right changes step.

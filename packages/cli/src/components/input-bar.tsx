@@ -270,6 +270,7 @@ function FileMentionMenu({
 type Props = {
   onSubmit: (text: string) => void;
   disabled?: boolean;
+  active?: boolean;
 };
 
 export const TEXTAREA_KEY_BINDINGS: KeyBinding[] = [
@@ -279,7 +280,7 @@ export const TEXTAREA_KEY_BINDINGS: KeyBinding[] = [
   { name: "enter", shift: true, action: "newline" },
 ];
 
-export function InputBar({ onSubmit, disabled = false }: Props) {
+export function InputBar({ onSubmit, disabled = false, active = true }: Props) {
   const { mode, provider, toggleMode, setMode, setProvider, setModel } = usePromptConfig();
   const textareaRef = useRef<TextareaRenderable>(null);
   const onSubmitRef = useRef<() => void>(() => {});
@@ -529,6 +530,7 @@ export function InputBar({ onSubmit, disabled = false }: Props) {
 
   useKeyboard((key) => {
     if (disabled) return;
+    if (!active) return;
     if (!isTopLayer("base")) return;
     if (key.name === "tab") {
       key.preventDefault();
@@ -659,6 +661,7 @@ export function InputBar({ onSubmit, disabled = false }: Props) {
             ref={textareaRef}
             focused={
               !disabled && 
+              active &&
               (isTopLayer("base") || isTopLayer("command") || isTopLayer("mention"))
             }
             keyBindings={TEXTAREA_KEY_BINDINGS}
