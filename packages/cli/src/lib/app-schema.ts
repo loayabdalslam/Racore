@@ -62,6 +62,29 @@ export const toolInputSchemas = {
       }),
     ).min(1).max(8),
   }),
+  agentPlan: z.object({
+    task: z.string().describe("The user's task to classify and plan against the cached repo index"),
+    refreshIndex: z.boolean().optional().describe("Force a repo index refresh before planning"),
+  }),
+  repoIndex: z.object({
+    refresh: z.boolean().optional().describe("Force a repo index refresh"),
+  }),
+  searchSymbols: z.object({
+    query: z.string().describe("Symbol, export, function, class, or type to find"),
+    limit: z.number().optional().describe("Maximum symbol matches to return"),
+    refresh: z.boolean().optional().describe("Force a repo index refresh"),
+  }),
+  affectedTests: z.object({
+    paths: z.array(z.string()).optional().describe("Changed or likely changed relative file paths"),
+    task: z.string().optional().describe("Optional task description used when paths are unknown"),
+    refresh: z.boolean().optional().describe("Force a repo index refresh"),
+  }),
+  readProjectMemory: z.object({
+    query: z.string().optional().describe("Optional topic to filter stored project facts"),
+  }),
+  rememberProjectFact: z.object({
+    fact: z.string().describe("A concise durable project fact that will speed up future runs"),
+  }),
   writeFile: z.object({
     path: z.string().describe("Relative path to write"),
     content: z.string().describe("File contents"),
@@ -78,6 +101,16 @@ export const toolInputSchemas = {
     path: z.string().describe("Relative path to edit"),
     oldString: z.string().describe("Exact text to replace; must be unique"),
     newString: z.string().describe("Replacement text"),
+  }),
+  patchFile: z.object({
+    path: z.string().describe("Relative path to patch"),
+    patches: z.array(
+      z.object({
+        action: z.enum(["replace", "insertBefore", "insertAfter", "append"]),
+        anchor: z.string().optional().describe("Exact anchor text for replace/insert actions"),
+        content: z.string().describe("Replacement or inserted content"),
+      }),
+    ).min(1).max(20),
   }),
   bash: z.object({
     command: z.string().describe("Shell command to run"),

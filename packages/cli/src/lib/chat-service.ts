@@ -9,28 +9,49 @@ import {
   type ModeType,
   type ProviderIdType,
 } from "./app-schema";
+import { formatAgentAccelerationContext, getAgentAccelerationContext } from "./agent-accelerator";
 import { executeLocalTool } from "./local-tools";
 import { getProviderModels } from "./models";
 import { getProviderAuth } from "./provider-auth";
 
-function buildSystemPrompt(mode: ModeType, useTools: boolean) {
+function buildSystemPrompt(mode: ModeType, useTools: boolean, accelerationContext?: string | null) {
   if (!useTools) {
     return "You are R'a Core. Reply briefly and directly.";
   }
 
+  const speedProtocol = [
+    "Speed protocol:",
+    "Use the fast workspace context before broad exploration.",
+    "Prefer agentPlan, searchSymbols, readManyFiles, grepManyPatterns, affectedTests, and patchFile for compact parallel progress.",
+    "Run focused verification before wider commands when tests are inferred.",
+  ].join(" ");
+
+  const context = accelerationContext
+    ? `\n\n${accelerationContext}`
+    : "";
+
   if (mode === Mode.PLAN) {
-    return "You are R'a Core in Plan mode. Inspect carefully. Use only read-only tools. Keep answers concise.";
+    return [
+      "You are R'a Core in Plan mode. Inspect carefully. Use only read-only tools. Keep answers concise.",
+      speedProtocol,
+    ].join(" ") + context;
   }
 
   if (mode === Mode.ULTRA) {
     return [
       "You are R'a Core in Ultra mode.",
       "Use parallel and batch tools when work spans files.",
+      "Treat the repo index as your first map, then launch only the missing reads or checks.",
+      "Route small subtasks to invokeAI only when they can run independently.",
       "Keep results coordinated and concise.",
-    ].join(" ");
+      speedProtocol,
+    ].join(" ") + context;
   }
 
-  return "You are R'a Core, a local coding assistant. Use tools only when useful. Prefer precise edits and concise progress.";
+  return [
+    "You are R'a Core, a local coding assistant. Use tools only when useful. Prefer precise edits and concise progress.",
+    speedProtocol,
+  ].join(" ") + context;
 }
 
 function getModel(provider: ProviderIdType, modelId: string) {
@@ -200,6 +221,11 @@ export async function submitChat(params: {
       : params.mode === Mode.ULTRA
         ? 10
         : 6;
+  const accelerationContext = useTools
+    ? await getAgentAccelerationContext({ task: latestUserText, mode: params.mode })
+      .then(formatAgentAccelerationContext)
+      .catch(() => null)
+    : null;
 
   const modelIds =
     params.provider === ProviderId.OPENROUTER
@@ -215,6 +241,30 @@ export async function submitChat(params: {
     const model = getModel(params.provider, modelId);
 
     const tools = useTools ? {
+    agentPlan: tool({
+      inputSchema: toolInputSchemas.agentPlan,
+      execute: async (input) => executeLocalTool("agentPlan", input, params.mode),
+    }),
+    repoIndex: tool({
+      inputSchema: toolInputSchemas.repoIndex,
+      execute: async (input) => executeLocalTool("repoIndex", input, params.mode),
+    }),
+    searchSymbols: tool({
+      inputSchema: toolInputSchemas.searchSymbols,
+      execute: async (input) => executeLocalTool("searchSymbols", input, params.mode),
+    }),
+    affectedTests: tool({
+      inputSchema: toolInputSchemas.affectedTests,
+      execute: async (input) => executeLocalTool("affectedTests", input, params.mode),
+    }),
+    readProjectMemory: tool({
+      inputSchema: toolInputSchemas.readProjectMemory,
+      execute: async (input) => executeLocalTool("readProjectMemory", input, params.mode),
+    }),
+    rememberProjectFact: tool({
+      inputSchema: toolInputSchemas.rememberProjectFact,
+      execute: async (input) => executeLocalTool("rememberProjectFact", input, params.mode),
+    }),
     readFile: tool({
       inputSchema: toolInputSchemas.readFile,
       execute: async (input) => executeLocalTool("readFile", input, params.mode),
@@ -251,6 +301,10 @@ export async function submitChat(params: {
       inputSchema: toolInputSchemas.editFile,
       execute: async (input) => executeLocalTool("editFile", input, params.mode),
     }),
+    patchFile: tool({
+      inputSchema: toolInputSchemas.patchFile,
+      execute: async (input) => executeLocalTool("patchFile", input, params.mode),
+    }),
     bash: tool({
       inputSchema: toolInputSchemas.bash,
       execute: async (input) => executeLocalTool("bash", input, params.mode),
@@ -280,7 +334,7 @@ export async function submitChat(params: {
     try {
       result = await generateText({
         model,
-        system: buildSystemPrompt(params.mode, useTools),
+        system: buildSystemPrompt(params.mode, useTools, accelerationContext),
         messages: coreMessages,
         tools,
         maxSteps,

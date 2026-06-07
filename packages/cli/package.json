@@ -34,8 +34,9 @@
   },
   "scripts": {
     "dev": "node ../../scripts/run-bun.mjs run --watch src/index.tsx",
+    "prebuild": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "build": "node ../../scripts/run-bun.mjs build src/index.tsx --outdir dist --target bun",
-    "test": "node ../../scripts/run-bun.mjs test src/lib/*.test.ts",
+    "test": "node ../../scripts/run-bun.mjs test ./src/lib",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
@@ -51,6 +52,7 @@
     "@opentui/react": "^0.1.97",
     "ai": "^6.0.191",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.4.2",
     "open": "^11.0.0",
     "opentui-spinner": "^0.0.6",
     "pretty-ms": "^9.3.0",

@@ -1,5 +1,14 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "path";
+import {
+  formatAgentAccelerationContext,
+  getAffectedTestsForPaths,
+  getAgentAccelerationContext,
+  getRelevantProjectMemory,
+  getRepoIndex,
+  rememberProjectFact,
+  searchRepoSymbols,
+} from "./agent-accelerator";
 import { toolInputSchemas, Mode, type ModeType } from "./app-schema";
 
 const MAX_FILE_SIZE = 10_000;
@@ -29,7 +38,19 @@ function truncate(value: string, limit: number) {
 export async function executeLocalTool(toolName: string, input: unknown, mode: ModeType) {
   if (
     mode === Mode.PLAN
-    && !["readFile", "listDirectory", "glob", "grep", "readManyFiles", "grepManyPatterns"].includes(toolName)
+    && ![
+      "readFile",
+      "listDirectory",
+      "glob",
+      "grep",
+      "readManyFiles",
+      "grepManyPatterns",
+      "agentPlan",
+      "repoIndex",
+      "searchSymbols",
+      "affectedTests",
+      "readProjectMemory",
+    ].includes(toolName)
   ) {
     throw new Error(`Tool ${toolName} is not available in PLAN mode`);
   }
@@ -143,6 +164,46 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
       );
       return { results };
     }
+    case "agentPlan": {
+      const { task, refreshIndex } = toolInputSchemas.agentPlan.parse(input);
+      const context = await getAgentAccelerationContext({ task, mode, refreshIndex });
+      return {
+        ...context,
+        promptContext: formatAgentAccelerationContext(context),
+      };
+    }
+    case "repoIndex": {
+      const { refresh } = toolInputSchemas.repoIndex.parse(input);
+      const index = await getRepoIndex({ refresh });
+      return {
+        generatedAt: index.generatedAt,
+        projectRoot: index.projectRoot,
+        stats: index.stats,
+        sampleFiles: index.files.slice(0, 30).map((file) => ({
+          path: file.path,
+          kind: file.kind,
+          symbols: file.symbols.slice(0, 6),
+        })),
+      };
+    }
+    case "searchSymbols": {
+      const { query, limit, refresh } = toolInputSchemas.searchSymbols.parse(input);
+      return {
+        matches: await searchRepoSymbols(query, { limit, refresh }),
+      };
+    }
+    case "affectedTests": {
+      const { paths = [], task, refresh } = toolInputSchemas.affectedTests.parse(input);
+      return await getAffectedTestsForPaths(paths, { task, refresh });
+    }
+    case "readProjectMemory": {
+      const { query } = toolInputSchemas.readProjectMemory.parse(input);
+      return { facts: getRelevantProjectMemory(query) };
+    }
+    case "rememberProjectFact": {
+      const { fact } = toolInputSchemas.rememberProjectFact.parse(input);
+      return { fact: await rememberProjectFact(fact) };
+    }
     case "writeFile": {
       const { path, content } = toolInputSchemas.writeFile.parse(input);
       const { cwd, resolved } = resolveInsideCwd(path);
@@ -172,6 +233,43 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
 
       await writeFile(resolved, content.replace(oldString, newString), "utf-8");
       return { success: true as const, path: relative(cwd, resolved) };
+    }
+    case "patchFile": {
+      const { path, patches } = toolInputSchemas.patchFile.parse(input);
+      const { cwd, resolved } = resolveInsideCwd(path);
+      let content = await readFile(resolved, "utf-8");
+
+      for (const patch of patches) {
+        if (patch.action === "append") {
+          content = content.endsWith("\n")
+            ? `${content}${patch.content}`
+            : `${content}\n${patch.content}`;
+          continue;
+        }
+
+        if (!patch.anchor) {
+          throw new Error(`Patch action ${patch.action} requires an anchor`);
+        }
+
+        const occurrences = content.split(patch.anchor).length - 1;
+        if (occurrences === 0) throw new Error("Patch anchor not found in file");
+        if (occurrences > 1) throw new Error(`Patch anchor is ambiguous; found ${occurrences} matches`);
+
+        if (patch.action === "replace") {
+          content = content.replace(patch.anchor, patch.content);
+        } else if (patch.action === "insertBefore") {
+          content = content.replace(patch.anchor, `${patch.content}${patch.anchor}`);
+        } else {
+          content = content.replace(patch.anchor, `${patch.anchor}${patch.content}`);
+        }
+      }
+
+      await writeFile(resolved, content, "utf-8");
+      return {
+        success: true as const,
+        path: relative(cwd, resolved),
+        patchesApplied: patches.length,
+      };
     }
     case "bash": {
       const { command, timeout = DEFAULT_TIMEOUT } = toolInputSchemas.bash.parse(input);
