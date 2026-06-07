@@ -1,6 +1,6 @@
 {
   "name": "@loai/racore-cli",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "R'a Core standalone terminal AI coding assistant",
   "module": "src/index.tsx",
   "type": "module",

@@ -2,7 +2,9 @@
   "name": "racore-workspace",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["packages/cli"],
+  "workspaces": [
+    "packages/cli"
+  ],
   "scripts": {
     "dev:cli": "node scripts/run-bun.mjs run --watch packages/cli/src/index.tsx",
     "build": "npm run build:cli",
