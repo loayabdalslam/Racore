@@ -185,11 +185,12 @@ export async function connectOpenRouter() {
 }
 
 export async function connectOpenAI() {
-  void open("https://platform.openai.com/api-keys");
   const envKey = process.env.OPENAI_API_KEY?.trim();
 
   if (!envKey) {
-    throw new Error("Opened OpenAI API keys. Set OPENAI_API_KEY or use Save API Key to finish login.");
+    throw new Error(
+      "OpenAI account login is supported by Codex CLI (`codex login`), but Racore API calls need OPENAI_API_KEY or Save API Key.",
+    );
   }
 
   saveProviderAuth(ProviderId.OPENAI, {

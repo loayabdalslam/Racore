@@ -3,19 +3,23 @@ import { TextAttributes } from "@opentui/core";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { useNavigate } from "react-router";
 import { AppShell } from "../components/app-shell";
+import { ProviderId } from "../lib/app-schema";
 import { getProviderModels } from "../lib/models";
+import { connectProvider } from "../lib/provider-auth";
 import { getProviderDefinition, PROVIDERS } from "../lib/providers";
+import { useDialog } from "../providers/dialog";
 import { useKeyboardLayer } from "../providers/keyboard-layer";
 import { usePromptConfig } from "../providers/prompt-config";
 import { useTheme } from "../providers/theme";
 import { useToast } from "../providers/toast";
 import { THEMES, type Theme } from "../theme";
 
-type OnboardingStep = "theme" | "provider" | "model";
+type OnboardingStep = "theme" | "provider" | "login" | "model";
 
 const STEPS: Array<{ id: OnboardingStep; label: string }> = [
   { id: "theme", label: "Theme" },
   { id: "provider", label: "Provider" },
+  { id: "login", label: "Login" },
   { id: "model", label: "Model" },
 ];
 
@@ -61,6 +65,7 @@ function OptionRow({
 
 export function OnboardingScreen() {
   const navigate = useNavigate();
+  const dialog = useDialog();
   const toast = useToast();
   const dimensions = useTerminalDimensions();
   const { isTopLayer } = useKeyboardLayer();
@@ -73,14 +78,21 @@ export function OnboardingScreen() {
   const models = useMemo(() => getProviderModels(provider), [provider]);
   const contentHeight = Math.max(12, Math.min(20, dimensions.height - 13));
   const rowHeight = 4;
-  const itemsLength = step.id === "theme" ? THEMES.length : step.id === "provider" ? PROVIDERS.length : models.length;
+  const itemsLength =
+    step.id === "theme"
+      ? THEMES.length
+      : step.id === "provider"
+        ? PROVIDERS.length
+        : step.id === "login"
+          ? 1
+          : models.length;
   const footerIndex = itemsLength;
   const centeredScrollTop = Math.max(
     0,
     selectedIndex * rowHeight - Math.floor(contentHeight / 2) + Math.ceil(rowHeight / 2),
   );
 
-  const chooseCurrent = () => {
+  const chooseCurrent = async () => {
     if (selectedIndex === footerIndex) {
       if (stepIndex === STEPS.length - 1) {
         toast.show({ variant: "success", message: "Onboarding complete." });
@@ -88,6 +100,42 @@ export function OnboardingScreen() {
       } else {
         setStepIndex((current) => current + 1);
         setSelectedIndex(0);
+      }
+      return;
+    }
+
+    if (step.id === "login") {
+      const definition = getProviderDefinition(provider);
+
+      if (provider === ProviderId.OPENAI) {
+        dialog.open({
+          title: "OpenAI Account Login",
+          children: (
+            <box flexDirection="column" gap={1}>
+              <text fg={colors.dimSeparator} wrapMode="word">
+                OpenAI account login is available in the official Codex CLI with `codex login`.
+              </text>
+              <text fg={colors.dimSeparator} wrapMode="word">
+                Racore sends OpenAI-compatible API requests, so it cannot use a ChatGPT browser session as an API credential.
+              </text>
+              <text fg={colors.info} wrapMode="word">
+                Use `codex login` for Codex CLI account access. Use Provider Setup to save an API key for Racore's OpenAI provider.
+              </text>
+            </box>
+          ),
+        });
+        return;
+      }
+
+      try {
+        await connectProvider(provider);
+        setProvider(provider);
+        toast.show({ variant: "success", message: `${definition.label} connected.` });
+      } catch (error) {
+        toast.show({
+          variant: "error",
+          message: error instanceof Error ? error.message : `${definition.label} login failed.`,
+        });
       }
       return;
     }
@@ -143,7 +191,7 @@ export function OnboardingScreen() {
 
     if (key.name === "return" || key.name === "enter") {
       key.preventDefault();
-      chooseCurrent();
+      void chooseCurrent();
       return;
     }
 
@@ -236,6 +284,24 @@ export function OnboardingScreen() {
             }}
           />
         ))}
+      {step.id === "login" && (
+        <OptionRow
+          title={provider === ProviderId.OPENAI ? "OpenAI account login" : `${getProviderDefinition(provider).shortLabel} CLI login`}
+          description={
+            provider === ProviderId.OPENAI
+              ? "Run `codex login` for ChatGPT account auth. Racore OpenAI API calls still need an API key."
+              : getProviderDefinition(provider).supportsOAuth
+                ? "Start browser login and local key exchange."
+                : "Open provider setup for local API key credentials."
+          }
+          selected={selectedIndex === 0}
+          active={false}
+          onSelect={() => {
+            setSelectedIndex(0);
+            void chooseCurrent();
+          }}
+        />
+      )}
       <OptionRow
         title={stepIndex === STEPS.length - 1 ? "Finish onboarding" : "Continue"}
         description={stepIndex === STEPS.length - 1 ? "Go to the home screen." : `Next: ${STEPS[stepIndex + 1]?.label}`}

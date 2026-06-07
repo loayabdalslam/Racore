@@ -14,6 +14,8 @@ import { useDialog } from "../providers/dialog";
 import { useKeyboardLayer } from "../providers/keyboard-layer";
 import { usePromptConfig } from "../providers/prompt-config";
 import { useTheme } from "../providers/theme";
+import { ProviderId } from "../lib/app-schema";
+import { connectProvider } from "../lib/provider-auth";
 import { getProviderDefinition } from "../lib/providers";
 
 function SettingsRow({
@@ -106,6 +108,44 @@ export function ConfigScreen() {
       });
     },
     () => navigate(`/config/provider/${provider}`),
+    async () => {
+      if (provider === ProviderId.OPENAI) {
+        dialog.open({
+          title: "OpenAI Account Login",
+          children: (
+            <box flexDirection="column" gap={1}>
+              <text fg={colors.dimSeparator} wrapMode="word">
+                Use `codex login` for official OpenAI Codex CLI account login.
+              </text>
+              <text fg={colors.dimSeparator} wrapMode="word">
+                Racore uses OpenAI-compatible API calls, so ChatGPT browser login cannot be used as a Racore API credential.
+              </text>
+              <text fg={colors.info} wrapMode="word">
+                For Racore's OpenAI provider, set OPENAI_API_KEY or save a local API key in Provider Setup.
+              </text>
+            </box>
+          ),
+        });
+        return;
+      }
+
+      try {
+        await connectProvider(provider);
+        setProvider(provider);
+        dialog.close();
+      } catch (error) {
+        dialog.open({
+          title: "CLI Login",
+          children: (
+            <box flexDirection="column" gap={1}>
+              <text fg={colors.error} wrapMode="word">
+                {error instanceof Error ? error.message : "Provider login failed."}
+              </text>
+            </box>
+          ),
+        });
+      }
+    },
     () => {
       dialog.open({
         title: "Select Mode",
@@ -163,23 +203,23 @@ export function ConfigScreen() {
       footer={
         <box flexDirection="row" gap={2}>
           <text
-            fg={selectedIndex === 5 ? "black" : colors.info}
-            backgroundColor={selectedIndex === 5 ? colors.selection : undefined}
-            onMouseDown={actions[5]}
-          >
-            [Back]
-          </text>
-          <text
             fg={selectedIndex === 6 ? "black" : colors.info}
             backgroundColor={selectedIndex === 6 ? colors.selection : undefined}
             onMouseDown={actions[6]}
           >
-            [Onboarding]
+            [Back]
           </text>
           <text
             fg={selectedIndex === 7 ? "black" : colors.info}
             backgroundColor={selectedIndex === 7 ? colors.selection : undefined}
             onMouseDown={actions[7]}
+          >
+            [Onboarding]
+          </text>
+          <text
+            fg={selectedIndex === 8 ? "black" : colors.info}
+            backgroundColor={selectedIndex === 8 ? colors.selection : undefined}
+            onMouseDown={actions[8]}
           >
             [Releases]
           </text>
@@ -209,25 +249,38 @@ export function ConfigScreen() {
         onSelect={actions[1]}
       />
       <SettingsRow
+        label="CLI Login"
+        value={
+          provider === ProviderId.OPENAI
+            ? "Use `codex login` for OpenAI account auth. Racore OpenAI API calls still need an API key."
+            : definition.supportsOAuth
+              ? `Login to ${definition.shortLabel} from the CLI.`
+              : `Open ${definition.shortLabel} key setup.`
+        }
+        actionLabel={provider === ProviderId.OPENAI ? "Info" : definition.supportsOAuth ? "Login" : "Open"}
+        selected={selectedIndex === 2}
+        onSelect={actions[2]}
+      />
+      <SettingsRow
         label="Mode"
         value={getModeLabel(mode)}
         actionLabel="Select"
-        selected={selectedIndex === 2}
-        onSelect={actions[2]}
+        selected={selectedIndex === 3}
+        onSelect={actions[3]}
       />
       <SettingsRow
         label="Theme"
         value={currentTheme.name}
         actionLabel="Dropdown"
-        selected={selectedIndex === 3}
-        onSelect={actions[3]}
+        selected={selectedIndex === 4}
+        onSelect={actions[4]}
       />
       <SettingsRow
         label="Font Size"
         value={fontSize}
         actionLabel="Dropdown"
-        selected={selectedIndex === 4}
-        onSelect={actions[4]}
+        selected={selectedIndex === 5}
+        onSelect={actions[5]}
       />
       <box width="100%" justifyContent="center">
         <text fg={colors.dimSeparator} wrapMode="word" textAlign="center">
