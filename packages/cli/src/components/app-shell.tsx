@@ -37,6 +37,7 @@ export function AppShell({
       justifyContent="center"
       paddingX={2}
       paddingY={1}
+      overflow="hidden"
     >
       <box
         width="100%"
@@ -53,6 +54,8 @@ export function AppShell({
           paddingX={3}
           paddingY={2}
           gap={1}
+          border={["top", "bottom"]}
+          borderColor={colors.dimSeparator}
         >
           {typeof contentHeight === "number" ? (
             <scrollbox ref={scrollRef} height={contentHeight}>

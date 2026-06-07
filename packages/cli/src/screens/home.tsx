@@ -177,6 +177,7 @@ export function Home() {
       flexGrow={1}
       flexDirection="row"
       backgroundColor={colors.background}
+      overflow="hidden"
     >
       <box
         width={30}
@@ -187,6 +188,8 @@ export function Home() {
         paddingX={2}
         paddingY={1}
         gap={1}
+        border={["right"]}
+        borderColor={colors.dimSeparator}
       >
         <box flexDirection="row" alignItems="center" justifyContent="space-between" width="100%">
           <text attributes={TextAttributes.BOLD}>racore</text>
@@ -257,6 +260,7 @@ export function Home() {
         justifyContent="space-between"
         paddingX={4}
         paddingY={2}
+        overflow="hidden"
       >
         {activeSession ? (
           <InlineChat
