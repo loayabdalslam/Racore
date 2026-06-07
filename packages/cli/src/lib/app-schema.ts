@@ -7,24 +7,14 @@ export const Mode = {
 } as const;
 
 export const ProviderId = {
-  OPENAI: "openai",
   OPENROUTER: "openrouter",
-  GROQ: "groq",
-  XAI: "xai",
-  DEEPSEEK: "deepseek",
 } as const;
 
 export type ModeType = (typeof Mode)[keyof typeof Mode];
 export type ProviderIdType = (typeof ProviderId)[keyof typeof ProviderId];
 
 export const modeSchema = z.enum([Mode.BUILD, Mode.PLAN, Mode.ULTRA]);
-export const providerIdSchema = z.enum([
-  ProviderId.OPENAI,
-  ProviderId.OPENROUTER,
-  ProviderId.GROQ,
-  ProviderId.XAI,
-  ProviderId.DEEPSEEK,
-]);
+export const providerIdSchema = z.enum([ProviderId.OPENROUTER]);
 
 export type ProviderModel = {
   id: string;

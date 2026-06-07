@@ -58,7 +58,7 @@ if (subcommand === "team") {
       displayName: teamArg,
       description: "A new team",
       processMode: "sequential",
-      coordinator: { provider: "openai", model: "gpt-4o" },
+      coordinator: { provider: "openrouter", model: "openai/gpt-5" },
       agents: [],
       defaults: { maxConcurrentAgents: 4 },
       rules: [],

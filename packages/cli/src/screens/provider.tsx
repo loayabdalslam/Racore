@@ -95,31 +95,13 @@ function SummaryCard({
   );
 }
 
-function OpenAIAccountLoginNotice() {
-  const { colors } = useTheme();
-
-  return (
-    <box flexDirection="column" gap={1}>
-      <text fg={colors.dimSeparator} wrapMode="word">
-        OpenAI account login is available in the official Codex CLI with `codex login`.
-      </text>
-      <text fg={colors.dimSeparator} wrapMode="word">
-        Racore currently sends OpenAI-compatible API requests, so it cannot use a ChatGPT browser session as an API token.
-      </text>
-      <text fg={colors.info} wrapMode="word">
-        To use OpenAI directly in Racore, set OPENAI_API_KEY or use Save API Key. To use your ChatGPT account, run `codex login` in your terminal for Codex CLI.
-      </text>
-    </box>
-  );
-}
-
 export function ProviderScreen() {
   const params = useParams();
   const providerFromRoute =
-    (params.providerId as ProviderIdType | undefined) ?? ProviderId.OPENAI;
+    (params.providerId as ProviderIdType | undefined) ?? ProviderId.OPENROUTER;
   const provider = PROVIDERS.some((item) => item.id === providerFromRoute)
     ? providerFromRoute
-    : ProviderId.OPENAI;
+    : ProviderId.OPENROUTER;
 
   const navigate = useNavigate();
   const dialog = useDialog();
@@ -155,21 +137,9 @@ export function ProviderScreen() {
     },
     {
       label: "CLI Login",
-      value: provider === ProviderId.OPENAI
-        ? "Use `codex login` for ChatGPT account auth. Racore OpenAI API calls still need an API key."
-        : definition.supportsOAuth
-          ? "Start browser login and local key exchange."
-          : "Open the provider console to create a key.",
-      actionLabel: busy ? "Working..." : provider === ProviderId.OPENAI ? "Info" : definition.supportsOAuth ? "Login" : "Open",
+      value: "Start OpenRouter browser login and local key exchange.",
+      actionLabel: busy ? "Working..." : "Login",
       onSelect: async () => {
-        if (provider === ProviderId.OPENAI) {
-          dialog.open({
-            title: "OpenAI Account Login",
-            children: <OpenAIAccountLoginNotice />,
-          });
-          return;
-        }
-
         setBusy(true);
         try {
           await connectProvider(provider);

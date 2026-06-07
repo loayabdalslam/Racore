@@ -6,7 +6,6 @@ import { AppShell } from "../components/app-shell";
 import {
   AgentsDialogContent,
   FontSizeDialogContent,
-  ProviderDialogContent,
   ThemeDialogContent,
 } from "../components/dialogs";
 import { getModeLabel } from "../components/dialogs/agents-dialog";
@@ -14,7 +13,6 @@ import { useDialog } from "../providers/dialog";
 import { useKeyboardLayer } from "../providers/keyboard-layer";
 import { usePromptConfig } from "../providers/prompt-config";
 import { useTheme } from "../providers/theme";
-import { ProviderId } from "../lib/app-schema";
 import { connectProvider } from "../lib/provider-auth";
 import { getProviderDefinition } from "../lib/providers";
 
@@ -94,41 +92,8 @@ export function ConfigScreen() {
   );
 
   const actions = [
-    () => {
-      dialog.open({
-        title: "Select Provider",
-        children: (
-          <ProviderDialogContent
-            onSelectProvider={(nextProvider) => {
-              setProvider(nextProvider);
-              navigate(`/config/provider/${nextProvider}`);
-            }}
-          />
-        ),
-      });
-    },
     () => navigate(`/config/provider/${provider}`),
     async () => {
-      if (provider === ProviderId.OPENAI) {
-        dialog.open({
-          title: "OpenAI Account Login",
-          children: (
-            <box flexDirection="column" gap={1}>
-              <text fg={colors.dimSeparator} wrapMode="word">
-                Use `codex login` for official OpenAI Codex CLI account login.
-              </text>
-              <text fg={colors.dimSeparator} wrapMode="word">
-                Racore uses OpenAI-compatible API calls, so ChatGPT browser login cannot be used as a Racore API credential.
-              </text>
-              <text fg={colors.info} wrapMode="word">
-                For Racore's OpenAI provider, set OPENAI_API_KEY or save a local API key in Provider Setup.
-              </text>
-            </box>
-          ),
-        });
-        return;
-      }
-
       try {
         await connectProvider(provider);
         setProvider(provider);
@@ -203,23 +168,23 @@ export function ConfigScreen() {
       footer={
         <box flexDirection="row" gap={2}>
           <text
+            fg={selectedIndex === 5 ? "black" : colors.info}
+            backgroundColor={selectedIndex === 5 ? colors.selection : undefined}
+            onMouseDown={actions[5]}
+          >
+            [Back]
+          </text>
+          <text
             fg={selectedIndex === 6 ? "black" : colors.info}
             backgroundColor={selectedIndex === 6 ? colors.selection : undefined}
             onMouseDown={actions[6]}
           >
-            [Back]
+            [Onboarding]
           </text>
           <text
             fg={selectedIndex === 7 ? "black" : colors.info}
             backgroundColor={selectedIndex === 7 ? colors.selection : undefined}
             onMouseDown={actions[7]}
-          >
-            [Onboarding]
-          </text>
-          <text
-            fg={selectedIndex === 8 ? "black" : colors.info}
-            backgroundColor={selectedIndex === 8 ? colors.selection : undefined}
-            onMouseDown={actions[8]}
           >
             [Releases]
           </text>
@@ -231,56 +196,43 @@ export function ConfigScreen() {
       </box>
       <box width="100%" justifyContent="center">
         <text fg={colors.dimSeparator} wrapMode="word" textAlign="center">
-          Provider, mode, theme, and font size live here. Open provider setup for auth, onboarding, and model controls.
+          Racore now runs through OpenRouter only. Configure login, mode, theme, and model here.
         </text>
       </box>
       <SettingsRow
         label="Provider"
         value={definition.label}
-        actionLabel="Dropdown"
+        actionLabel="Setup"
         selected={selectedIndex === 0}
         onSelect={actions[0]}
       />
       <SettingsRow
-        label="Provider Setup"
-        value={`Open ${definition.shortLabel} auth, API key, and model page.`}
-        actionLabel="Open"
+        label="CLI Login"
+        value="Login to OpenRouter from the CLI and create a local Racore key."
+        actionLabel="Login"
         selected={selectedIndex === 1}
         onSelect={actions[1]}
-      />
-      <SettingsRow
-        label="CLI Login"
-        value={
-          provider === ProviderId.OPENAI
-            ? "Use `codex login` for OpenAI account auth. Racore OpenAI API calls still need an API key."
-            : definition.supportsOAuth
-              ? `Login to ${definition.shortLabel} from the CLI.`
-              : `Open ${definition.shortLabel} key setup.`
-        }
-        actionLabel={provider === ProviderId.OPENAI ? "Info" : definition.supportsOAuth ? "Login" : "Open"}
-        selected={selectedIndex === 2}
-        onSelect={actions[2]}
       />
       <SettingsRow
         label="Mode"
         value={getModeLabel(mode)}
         actionLabel="Select"
-        selected={selectedIndex === 3}
-        onSelect={actions[3]}
+        selected={selectedIndex === 2}
+        onSelect={actions[2]}
       />
       <SettingsRow
         label="Theme"
         value={currentTheme.name}
         actionLabel="Dropdown"
-        selected={selectedIndex === 4}
-        onSelect={actions[4]}
+        selected={selectedIndex === 3}
+        onSelect={actions[3]}
       />
       <SettingsRow
         label="Font Size"
         value={fontSize}
         actionLabel="Dropdown"
-        selected={selectedIndex === 5}
-        onSelect={actions[5]}
+        selected={selectedIndex === 4}
+        onSelect={actions[4]}
       />
       <box width="100%" justifyContent="center">
         <text fg={colors.dimSeparator} wrapMode="word" textAlign="center">

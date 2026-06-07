@@ -4,29 +4,13 @@ import { getDefaultModel, getProviderModels, mergeProviderModels, toOpenRouterTo
 
 describe("models", () => {
   it("has at least one model for every provider", () => {
-    const providers = [
-      ProviderId.OPENAI,
-      ProviderId.OPENROUTER,
-      ProviderId.GROQ,
-      ProviderId.XAI,
-      ProviderId.DEEPSEEK,
-    ];
-
-    for (const provider of providers) {
+    for (const provider of Object.values(ProviderId)) {
       expect(getProviderModels(provider).length).toBeGreaterThan(0);
     }
   });
 
   it("returns a default model that belongs to the requested provider", () => {
-    const providers = [
-      ProviderId.OPENAI,
-      ProviderId.OPENROUTER,
-      ProviderId.GROQ,
-      ProviderId.XAI,
-      ProviderId.DEEPSEEK,
-    ];
-
-    for (const provider of providers) {
+    for (const provider of Object.values(ProviderId)) {
       const model = getDefaultModel(provider);
       expect(model.provider).toBe(provider);
     }

@@ -7,7 +7,6 @@ import {
   type ChatMessage,
   type MessageMetadata,
   type ModeType,
-  type ProviderIdType,
 } from "./app-schema";
 import { formatAgentAccelerationContext, getAgentAccelerationContext } from "./agent-accelerator";
 import { executeLocalTool } from "./local-tools";
@@ -22,7 +21,7 @@ function buildSystemPrompt(mode: ModeType, useTools: boolean, accelerationContex
   const speedProtocol = [
     "Speed protocol:",
     "Use the fast workspace context before broad exploration.",
-    "Prefer agentPlan, searchSymbols, readManyFiles, grepManyPatterns, affectedTests, and patchFile for compact parallel progress.",
+    "Prefer readManyFiles, grepManyPatterns, affectedTests, and patchFile for compact parallel progress.",
     "Run focused verification before wider commands when tests are inferred.",
   ].join(" ");
 
@@ -54,52 +53,21 @@ function buildSystemPrompt(mode: ModeType, useTools: boolean, accelerationContex
   ].join(" ") + context;
 }
 
-function getModel(provider: ProviderIdType, modelId: string) {
-  const auth = getProviderAuth(provider);
+function getModel(modelId: string) {
+  const auth = getProviderAuth(ProviderId.OPENROUTER);
   if (!auth.apiKey) {
-    throw new Error(`Provider ${provider} is not connected`);
+    throw new Error("OpenRouter is not connected");
   }
 
-  if (provider === ProviderId.OPENROUTER) {
-    const openrouter = createOpenAI({
-      apiKey: auth.apiKey,
-      baseURL: "https://openrouter.ai/api/v1",
-      headers: {
-        "HTTP-Referer": "https://github.com/loayabdalslam/racore",
-        "X-Title": "R'a Core",
-      },
-    });
-    return openrouter(modelId);
-  }
-
-  if (provider === ProviderId.GROQ) {
-    const groq = createOpenAI({
-      apiKey: auth.apiKey,
-      baseURL: "https://api.groq.com/openai/v1",
-    });
-    return groq(modelId);
-  }
-
-  if (provider === ProviderId.XAI) {
-    const xai = createOpenAI({
-      apiKey: auth.apiKey,
-      baseURL: "https://api.x.ai/v1",
-    });
-    return xai(modelId);
-  }
-
-  if (provider === ProviderId.DEEPSEEK) {
-    const deepseek = createOpenAI({
-      apiKey: auth.apiKey,
-      baseURL: "https://api.deepseek.com/v1",
-    });
-    return deepseek(modelId);
-  }
-
-  const openai = createOpenAI({
+  const openrouter = createOpenAI({
     apiKey: auth.apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    headers: {
+      "HTTP-Referer": "https://github.com/loayabdalslam/racore",
+      "X-Title": "R'a Core",
+    },
   });
-  return openai(modelId);
+  return openrouter(modelId);
 }
 
 function readProviderError(data: unknown): string | null {
@@ -139,16 +107,16 @@ function parseProviderErrorBody(responseBody?: string): string | null {
   }
 }
 
-function formatChatError(error: unknown, provider: ProviderIdType, model: string) {
+function formatChatError(error: unknown, model: string) {
   if (APICallError.isInstance(error)) {
     const providerMessage =
       readProviderError(error.data) ?? parseProviderErrorBody(error.responseBody) ?? error.message;
     const status = error.statusCode ? `HTTP ${error.statusCode}` : "provider error";
-    return new Error(`${provider} ${status} for ${model}: ${providerMessage}`);
+    return new Error(`openrouter ${status} for ${model}: ${providerMessage}`);
   }
 
   if (error instanceof Error && APICallError.isInstance(error.cause)) {
-    return formatChatError(error.cause, provider, model);
+    return formatChatError(error.cause, model);
   }
 
   if (error instanceof Error) return error;
@@ -207,7 +175,6 @@ function toCoreMessages(messages: ChatMessage[]): CoreMessage[] {
 export async function submitChat(params: {
   messages: ChatMessage[];
   mode: ModeType;
-  provider: ProviderIdType;
   model: string;
 }) {
   const startTime = Date.now();
@@ -217,20 +184,19 @@ export async function submitChat(params: {
   const maxSteps = !useTools
     ? 1
     : params.mode === Mode.PLAN
-      ? 4
+      ? 3
       : params.mode === Mode.ULTRA
         ? 10
-        : 6;
+        : 4;
   const accelerationContext = useTools
     ? await getAgentAccelerationContext({ task: latestUserText, mode: params.mode })
       .then(formatAgentAccelerationContext)
       .catch(() => null)
     : null;
+  const useHeavyTools = params.mode === Mode.ULTRA;
+  const usePlanningTools = params.mode === Mode.PLAN || params.mode === Mode.ULTRA;
 
-  const modelIds =
-    params.provider === ProviderId.OPENROUTER
-      ? getOpenRouterCandidateModels(params.model)
-      : [params.model];
+  const modelIds = getOpenRouterCandidateModels(params.model);
 
   let usedModelId = params.model;
   let result: Awaited<ReturnType<typeof generateText>> | null = null;
@@ -238,33 +204,37 @@ export async function submitChat(params: {
 
   for (const modelId of modelIds) {
     usedModelId = modelId;
-    const model = getModel(params.provider, modelId);
+    const model = getModel(modelId);
 
     const tools = useTools ? {
-    agentPlan: tool({
+    ...(usePlanningTools ? {
+      agentPlan: tool({
       inputSchema: toolInputSchemas.agentPlan,
       execute: async (input) => executeLocalTool("agentPlan", input, params.mode),
-    }),
-    repoIndex: tool({
+      }),
+      repoIndex: tool({
       inputSchema: toolInputSchemas.repoIndex,
       execute: async (input) => executeLocalTool("repoIndex", input, params.mode),
-    }),
-    searchSymbols: tool({
+      }),
+      searchSymbols: tool({
       inputSchema: toolInputSchemas.searchSymbols,
       execute: async (input) => executeLocalTool("searchSymbols", input, params.mode),
-    }),
+      }),
+    } : {}),
     affectedTests: tool({
       inputSchema: toolInputSchemas.affectedTests,
       execute: async (input) => executeLocalTool("affectedTests", input, params.mode),
     }),
-    readProjectMemory: tool({
+    ...(useHeavyTools ? {
+      readProjectMemory: tool({
       inputSchema: toolInputSchemas.readProjectMemory,
       execute: async (input) => executeLocalTool("readProjectMemory", input, params.mode),
-    }),
-    rememberProjectFact: tool({
+      }),
+      rememberProjectFact: tool({
       inputSchema: toolInputSchemas.rememberProjectFact,
       execute: async (input) => executeLocalTool("rememberProjectFact", input, params.mode),
-    }),
+      }),
+    } : {}),
     readFile: tool({
       inputSchema: toolInputSchemas.readFile,
       execute: async (input) => executeLocalTool("readFile", input, params.mode),
@@ -293,10 +263,12 @@ export async function submitChat(params: {
       inputSchema: toolInputSchemas.writeFile,
       execute: async (input) => executeLocalTool("writeFile", input, params.mode),
     }),
-    writeManyFiles: tool({
+    ...(useHeavyTools ? {
+      writeManyFiles: tool({
       inputSchema: toolInputSchemas.writeManyFiles,
       execute: async (input) => executeLocalTool("writeManyFiles", input, params.mode),
-    }),
+      }),
+    } : {}),
     editFile: tool({
       inputSchema: toolInputSchemas.editFile,
       execute: async (input) => executeLocalTool("editFile", input, params.mode),
@@ -309,7 +281,8 @@ export async function submitChat(params: {
       inputSchema: toolInputSchemas.bash,
       execute: async (input) => executeLocalTool("bash", input, params.mode),
     }),
-    invokeAI: tool({
+    ...(useHeavyTools ? {
+      invokeAI: tool({
       inputSchema: toolInputSchemas.invokeAI,
       execute: async (input) => {
         const subtask = await generateText({
@@ -328,7 +301,8 @@ export async function submitChat(params: {
 
         return { text: subtask.text };
       },
-    }),
+      }),
+    } : {}),
     } : undefined;
 
     try {
@@ -342,10 +316,10 @@ export async function submitChat(params: {
       });
       break;
     } catch (error) {
-      const formatted = formatChatError(error, params.provider, modelId);
+      const formatted = formatChatError(error, modelId);
       errors.push(formatted);
 
-      if (params.provider !== ProviderId.OPENROUTER || !shouldTryOpenRouterFallback(error)) {
+      if (!shouldTryOpenRouterFallback(error)) {
         throw formatted;
       }
     }
@@ -390,7 +364,7 @@ export async function submitChat(params: {
 
   const metadata: MessageMetadata = {
     mode: params.mode,
-    provider: params.provider,
+    provider: ProviderId.OPENROUTER,
     model: usedModelId,
     durationMs: Date.now() - startTime,
   };

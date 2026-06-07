@@ -28,16 +28,12 @@ describe("config store", () => {
     restoreConfigFile();
   });
 
-  it("returns a complete default config with every provider model", () => {
+  it("returns an OpenRouter-only default config", () => {
     const config = getDefaultConfig();
 
-    expect(config.activeProvider).toBe(ProviderId.OPENAI);
+    expect(config.activeProvider).toBe(ProviderId.OPENROUTER);
     expect(config.mode).toBe(Mode.BUILD);
-    expect(config.modelByProvider).toHaveProperty(ProviderId.OPENAI);
-    expect(config.modelByProvider).toHaveProperty(ProviderId.OPENROUTER);
-    expect(config.modelByProvider).toHaveProperty(ProviderId.GROQ);
-    expect(config.modelByProvider).toHaveProperty(ProviderId.XAI);
-    expect(config.modelByProvider).toHaveProperty(ProviderId.DEEPSEEK);
+    expect(Object.keys(config.modelByProvider)).toEqual([ProviderId.OPENROUTER]);
   });
 
   it("round-trips a saved config", () => {

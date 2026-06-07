@@ -33,36 +33,26 @@ describe("provider auth", () => {
     restoreAuthFile();
   });
 
-  it("saves and loads API keys for every provider safely", () => {
+  it("saves and loads the OpenRouter API key safely", () => {
     saveProviderApiKey(ProviderId.OPENROUTER, "or-key");
-    saveProviderApiKey(ProviderId.OPENAI, "oa-key");
-    saveProviderApiKey(ProviderId.GROQ, "gq-key");
 
     expect(getProviderAuth(ProviderId.OPENROUTER).apiKey).toBe("or-key");
-    expect(getProviderAuth(ProviderId.OPENAI).apiKey).toBe("oa-key");
-    expect(getProviderAuth(ProviderId.GROQ).apiKey).toBe("gq-key");
     expect(isProviderConnected(ProviderId.OPENROUTER)).toBe(true);
   });
 
-  it("clears a single provider without destroying other providers", () => {
+  it("clears OpenRouter credentials", () => {
     saveProviderApiKey(ProviderId.OPENROUTER, "or-key");
-    saveProviderApiKey(ProviderId.OPENAI, "oa-key");
 
     clearProviderAuth(ProviderId.OPENROUTER);
 
     expect(getProviderAuth(ProviderId.OPENROUTER).apiKey).toBeUndefined();
-    expect(getProviderAuth(ProviderId.OPENAI).apiKey).toBe("oa-key");
   });
 
-  it("persists valid json with all provider keys present", () => {
-    saveProviderApiKey(ProviderId.DEEPSEEK, "ds-key");
+  it("persists valid OpenRouter-only auth json", () => {
+    saveProviderApiKey(ProviderId.OPENROUTER, "or-key");
     const raw = readFileSync(AUTH_FILE, "utf8");
     const parsed = JSON.parse(raw) as Record<string, unknown>;
 
-    expect(parsed).toHaveProperty("openai");
-    expect(parsed).toHaveProperty("openrouter");
-    expect(parsed).toHaveProperty("groq");
-    expect(parsed).toHaveProperty("xai");
-    expect(parsed).toHaveProperty("deepseek");
+    expect(Object.keys(parsed)).toEqual([ProviderId.OPENROUTER]);
   });
 });

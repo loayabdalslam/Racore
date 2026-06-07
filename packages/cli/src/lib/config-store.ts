@@ -9,13 +9,9 @@ export function hasSavedConfig() {
 
 export function getDefaultConfig(): AppConfig {
   return {
-    activeProvider: ProviderId.OPENAI,
+    activeProvider: ProviderId.OPENROUTER,
     modelByProvider: {
-      [ProviderId.OPENAI]: getDefaultModel(ProviderId.OPENAI).id,
       [ProviderId.OPENROUTER]: getDefaultModel(ProviderId.OPENROUTER).id,
-      [ProviderId.GROQ]: getDefaultModel(ProviderId.GROQ).id,
-      [ProviderId.XAI]: getDefaultModel(ProviderId.XAI).id,
-      [ProviderId.DEEPSEEK]: getDefaultModel(ProviderId.DEEPSEEK).id,
     },
     mode: Mode.BUILD,
   };
@@ -33,8 +29,8 @@ export function loadConfig(): AppConfig {
     const defaults = getDefaultConfig();
 
     const modelByProvider = {
-      ...defaults.modelByProvider,
-      ...parsed.modelByProvider,
+      [ProviderId.OPENROUTER]:
+        parsed.modelByProvider?.[ProviderId.OPENROUTER] ?? defaults.modelByProvider[ProviderId.OPENROUTER],
     };
 
     for (const provider of Object.values(ProviderId)) {
@@ -45,7 +41,7 @@ export function loadConfig(): AppConfig {
     }
 
     const config = {
-      activeProvider: parsed.activeProvider ?? defaults.activeProvider,
+      activeProvider: defaults.activeProvider,
       modelByProvider,
       mode: parsed.mode ?? defaults.mode,
     };

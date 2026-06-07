@@ -3,14 +3,9 @@ import open from "open";
 import { AUTH_FILE, ensureAppDirectories } from "./app-paths";
 import { ProviderId, type AuthState, type ProviderAuthState, type ProviderIdType } from "./app-schema";
 import { refreshOpenRouterModels } from "./models";
-import { getProviderDefinition } from "./providers";
 
 const EMPTY_AUTH_STATE: AuthState = {
-  [ProviderId.OPENAI]: {},
   [ProviderId.OPENROUTER]: {},
-  [ProviderId.GROQ]: {},
-  [ProviderId.XAI]: {},
-  [ProviderId.DEEPSEEK]: {},
 };
 
 function loadAuthState(): AuthState {
@@ -21,11 +16,7 @@ function loadAuthState(): AuthState {
 
     const parsed = JSON.parse(readFileSync(AUTH_FILE, "utf8")) as Partial<AuthState>;
     return {
-      [ProviderId.OPENAI]: parsed.openai ?? {},
       [ProviderId.OPENROUTER]: parsed.openrouter ?? {},
-      [ProviderId.GROQ]: parsed.groq ?? {},
-      [ProviderId.XAI]: parsed.xai ?? {},
-      [ProviderId.DEEPSEEK]: parsed.deepseek ?? {},
     };
   } catch {
     return EMPTY_AUTH_STATE;
@@ -184,47 +175,6 @@ export async function connectOpenRouter() {
   });
 }
 
-export async function connectOpenAI() {
-  const envKey = process.env.OPENAI_API_KEY?.trim();
-
-  if (!envKey) {
-    throw new Error(
-      "OpenAI account login is supported by Codex CLI (`codex login`), but Racore API calls need OPENAI_API_KEY or Save API Key.",
-    );
-  }
-
-  saveProviderAuth(ProviderId.OPENAI, {
-    apiKey: envKey,
-    connectedAt: new Date().toISOString(),
-    authType: "api-key",
-  });
-}
-
-function readProviderEnvKey(provider: ProviderIdType) {
-  const envVar = getProviderDefinition(provider).envVar;
-  return process.env[envVar]?.trim();
-}
-
-export async function connectProvider(provider: ProviderIdType) {
-  if (provider === ProviderId.OPENROUTER) {
-    return connectOpenRouter();
-  }
-
-  if (provider === ProviderId.OPENAI) {
-    return connectOpenAI();
-  }
-
-  const definition = getProviderDefinition(provider);
-  void open(definition.browserUrl);
-
-  const envKey = readProviderEnvKey(provider);
-  if (!envKey) {
-    throw new Error(`Opened ${definition.label}. Add ${definition.envVar} or use Save API Key.`);
-  }
-
-  saveProviderApiKey(provider, envKey);
-
-  if (provider === ProviderId.OPENROUTER) {
-    await refreshOpenRouterModels(envKey);
-  }
+export async function connectProvider(_provider: ProviderIdType) {
+  return connectOpenRouter();
 }

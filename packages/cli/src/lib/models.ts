@@ -6,68 +6,17 @@ type StoredModelsState = Partial<Record<ProviderIdType, ProviderModel[]>>;
 
 export const BUILTIN_PROVIDER_MODELS: ProviderModel[] = [
   {
-    id: "gpt-5.4",
-    provider: ProviderId.OPENAI,
-    label: "GPT-5.4",
-    capability: "Strong coding and planning",
-    recommended: true,
-  },
-  {
-    id: "gpt-5.4-mini",
-    provider: ProviderId.OPENAI,
-    label: "GPT-5.4 Mini",
-    capability: "Faster lower-cost coding",
-  },
-  {
     id: "openai/gpt-5",
     provider: ProviderId.OPENROUTER,
     label: "GPT-5 via OpenRouter",
     capability: "Broad routing and unified billing",
+    recommended: true,
   },
   {
     id: "anthropic/claude-sonnet-4",
     provider: ProviderId.OPENROUTER,
     label: "Claude Sonnet 4 via OpenRouter",
     capability: "Reliable code editing and analysis",
-  },
-  {
-    id: "llama-3.3-70b-versatile",
-    provider: ProviderId.GROQ,
-    label: "Llama 3.3 70B",
-    capability: "Fast coding, reasoning, and chat",
-    recommended: true,
-  },
-  {
-    id: "deepseek-r1-distill-llama-70b",
-    provider: ProviderId.GROQ,
-    label: "DeepSeek R1 Distill 70B",
-    capability: "Quick reasoning with Groq latency",
-  },
-  {
-    id: "grok-code-fast-1",
-    provider: ProviderId.XAI,
-    label: "Grok Code Fast 1",
-    capability: "Fast code generation and edits",
-    recommended: true,
-  },
-  {
-    id: "grok-4-0709",
-    provider: ProviderId.XAI,
-    label: "Grok 4",
-    capability: "Broad reasoning and coding support",
-  },
-  {
-    id: "deepseek-chat",
-    provider: ProviderId.DEEPSEEK,
-    label: "DeepSeek Chat",
-    capability: "Balanced everyday coding and editing",
-    recommended: true,
-  },
-  {
-    id: "deepseek-reasoner",
-    provider: ProviderId.DEEPSEEK,
-    label: "DeepSeek Reasoner",
-    capability: "Stronger long-form reasoning and debugging",
   },
 ];
 
@@ -117,14 +66,12 @@ export function getProviderModels(provider: ProviderIdType) {
 }
 
 export function getDefaultModel(provider: ProviderIdType) {
-  if (provider === ProviderId.OPENROUTER) {
-    const storedModels = loadStoredModelsState()[ProviderId.OPENROUTER] ?? [];
-    const freeStoredModel = storedModels.find((model) => model.id.endsWith(":free"));
-    if (freeStoredModel) return freeStoredModel;
+  const storedModels = loadStoredModelsState()[ProviderId.OPENROUTER] ?? [];
+  const freeStoredModel = storedModels.find((model) => model.id.endsWith(":free"));
+  if (freeStoredModel) return freeStoredModel;
 
-    const firstStoredModel = storedModels[0];
-    if (firstStoredModel) return firstStoredModel;
-  }
+  const firstStoredModel = storedModels[0];
+  if (firstStoredModel) return firstStoredModel;
 
   const models = getProviderModels(provider);
   return models.find((model) => model.recommended) ?? models[0]!;

@@ -3,6 +3,7 @@ import { submitChat } from "../lib/chat-service";
 import {
   type ChatMessage as Message,
   type ModeType,
+  ProviderId,
   type ProviderIdType,
 } from "../lib/app-schema";
 import { appendMessages } from "../lib/session-store";
@@ -26,7 +27,7 @@ export function useChat(sessionId: string, initialMessages: Message[]) {
       parts: [{ type: "text", text: params.userText }],
       metadata: {
         mode: params.mode,
-        provider: params.provider,
+        provider: ProviderId.OPENROUTER,
         model: params.model,
       },
     };
@@ -40,7 +41,6 @@ export function useChat(sessionId: string, initialMessages: Message[]) {
       const assistantMessage = await submitChat({
         messages: pendingMessages,
         mode: params.mode,
-        provider: params.provider,
         model: params.model,
       });
 
