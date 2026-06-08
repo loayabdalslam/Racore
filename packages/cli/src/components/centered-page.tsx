@@ -50,15 +50,7 @@ export function CenteredPage({
           maxWidth={panelMaxWidth}
           backgroundColor={colors.surface}
           border={["left", "right"]}
-          borderColor={colors.thinkingBorder}
-          customBorderChars={{
-            vertical: "|",
-            horizontal: " ",
-            topLeft: " ",
-            topRight: " ",
-            bottomLeft: " ",
-            bottomRight: " ",
-          }}
+          borderColor={colors.dimSeparator}
           paddingX={panelPaddingX}
           paddingY={2}
           flexDirection="column"
