@@ -12,6 +12,7 @@ import { formatAgentAccelerationContext, getAgentAccelerationContext } from "./a
 import { executeLocalTool } from "./local-tools";
 import { getModelCapabilities, getProviderModels } from "./models";
 import { getProviderAuth } from "./provider-auth";
+import { recordUsage } from "./usage-store";
 
 const FAST_OPENROUTER_MODELS = [
   "google/gemini-2.5-flash",
@@ -671,6 +672,22 @@ export async function submitChat(params: {
     parts: assistantParts.length > 0 ? assistantParts : [{ type: "text", text: "No response." }],
     metadata,
   };
+
+  const toolCallCount = steps.reduce((sum, step) => sum + (step.toolCalls?.length ?? 0), 0);
+  const totalTokens = steps.reduce((sum, step) => sum + (step.usage?.totalTokens ?? 0), 0);
+  const inputTokens = steps.reduce((sum, step) => sum + (step.usage?.promptTokens ?? 0), 0);
+  const outputTokens = steps.reduce((sum, step) => sum + (step.usage?.completionTokens ?? 0), 0);
+
+  recordUsage({
+    model: usedModelId,
+    mode: params.mode,
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    cost: 0,
+    durationMs: Date.now() - startTime,
+    toolCalls: toolCallCount,
+  });
 
   return assistantMessage;
 }
