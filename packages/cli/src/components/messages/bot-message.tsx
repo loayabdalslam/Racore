@@ -96,12 +96,13 @@ export function BotMessage({ parts, model, mode, durationMs, streaming = false }
               const isFileOp = toolName === "writeFile" || toolName === "editFile" || toolName === "patchFile";
               const output = part.output as { diff?: DiffLine[]; path?: string } | undefined;
               const hasDiff = isFileOp && output?.diff && output.diff.length > 0;
+              const isRunning = part.state === "input-available" || part.state === undefined;
 
               return (
                 <box
                   key={part.toolCallId}
                   border={["left"]}
-                  borderColor={hasDiff ? colors.focus : colors.thinkingBorder}
+                  borderColor={isRunning ? colors.info : hasDiff ? colors.focus : colors.thinkingBorder}
                   customBorderChars={{
                     ...EmptyBorder,
                     vertical: "│",
@@ -110,10 +111,12 @@ export function BotMessage({ parts, model, mode, durationMs, streaming = false }
                   paddingX={2}
                   flexDirection="column"
                 >
-                  <box paddingBottom={hasDiff ? 1 : 0}>
+                  <box paddingBottom={hasDiff || isRunning ? 1 : 0}>
                     <RTLText attributes={TextAttributes.DIM}>
+                      {isRunning ? <text fg={colors.info}>⏳ </text> : null}
                       <em fg={colors.info}>{formatToolName(toolName)}:</em> {formatToolArgs(part)}
                       {part.state === "output-error" ? ` ${part.errorText}` : ""}
+                      {isRunning ? <text attributes={TextAttributes.DIM}> running...</text> : null}
                     </RTLText>
                   </box>
                   {hasDiff ? (
@@ -121,6 +124,11 @@ export function BotMessage({ parts, model, mode, durationMs, streaming = false }
                       filePath={output!.path!}
                       diff={output!.diff!}
                     />
+                  ) : null}
+                  {isRunning && isFileOp ? (
+                    <RTLText attributes={TextAttributes.DIM} fg={colors.dimSeparator}>
+                      waiting for output...
+                    </RTLText>
                   ) : null}
                 </box>
               );

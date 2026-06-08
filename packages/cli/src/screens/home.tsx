@@ -110,11 +110,12 @@ export function Home() {
       if (text.length > 150) {
         try {
           const subTasks = await decomposeTask(text);
+          const subTaskIds: string[] = [];
           for (const task of subTasks) {
-            addTodo(task.title);
+            const item = addTodo(task.title);
+            subTaskIds.push(item.id);
           }
-          // execute all subtasks in parallel (fire-and-forget)
-          executeAllTasks({ model }).catch(() => {});
+          executeAllTasks({ model, taskIds: subTaskIds }).catch(() => {});
         } catch {
           // decomposition is optional; continue normally
         }

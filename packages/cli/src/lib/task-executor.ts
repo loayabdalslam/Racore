@@ -14,6 +14,7 @@ type ExecutorOptions = {
   mode?: ModeType;
   concurrency?: number;
   onProgress?: (completed: number, total: number) => void;
+  taskIds?: string[];
 };
 
 const EXECUTION_PROMPT = (task: string) =>
@@ -130,7 +131,10 @@ async function executeSingleTask(todoId: string, options: ExecutorOptions): Prom
 }
 
 export async function executeAllTasks(options: ExecutorOptions = {}): Promise<void> {
-  const pending = getPendingTodos();
+  let pending = getPendingTodos();
+  if (options.taskIds) {
+    pending = pending.filter((t) => options.taskIds!.includes(t.id));
+  }
   if (pending.length === 0) return;
 
   const concurrency = options.concurrency ?? MAX_CONCURRENT;

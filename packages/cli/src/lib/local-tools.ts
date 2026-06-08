@@ -228,18 +228,25 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
     case "writeFile": {
       const { path, content } = toolInputSchemas.writeFile.parse(input);
       const { cwd, resolved } = resolveInsideCwd(path);
-      const oldContent = await tryReadFile(resolved);
-      await mkdir(dirname(resolved), { recursive: true });
-      await writeFile(resolved, content, "utf-8");
-      const diff = computeDiff(oldContent ?? "", content);
-      const actId = addActivity(relative(cwd, resolved), "write");
-      updateActivity(actId, { status: "completed", diff, content });
-      return {
-        success: true as const,
-        path: relative(cwd, resolved),
-        bytesWritten: Buffer.byteLength(content, "utf-8"),
-        diff,
-      };
+      const relPath = relative(cwd, resolved);
+      const actId = addActivity(relPath, "write");
+      updateActivity(actId, { status: "in_progress" });
+      try {
+        const oldContent = await tryReadFile(resolved);
+        await mkdir(dirname(resolved), { recursive: true });
+        await writeFile(resolved, content, "utf-8");
+        const diff = computeDiff(oldContent ?? "", content);
+        updateActivity(actId, { status: "completed", diff, content });
+        return {
+          success: true as const,
+          path: relPath,
+          bytesWritten: Buffer.byteLength(content, "utf-8"),
+          diff,
+        };
+      } catch (error) {
+        updateActivity(actId, { status: "error", error: String(error) });
+        throw error;
+      }
     }
     case "writeManyFiles": {
       const { files } = toolInputSchemas.writeManyFiles.parse(input);
@@ -251,24 +258,43 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
     case "editFile": {
       const { path, oldString, newString } = toolInputSchemas.editFile.parse(input);
       const { cwd, resolved } = resolveInsideCwd(path);
-      const content = await readFile(resolved, "utf-8");
-      const occurrences = content.split(oldString).length - 1;
+      const relPath = relative(cwd, resolved);
+      const actId = addActivity(relPath, "edit");
+      updateActivity(actId, { status: "in_progress" });
+      try {
+        const content = await readFile(resolved, "utf-8");
+        const occurrences = content.split(oldString).length - 1;
 
-      if (occurrences === 0) throw new Error("oldString not found in file");
-      if (occurrences > 1) throw new Error(`oldString is ambiguous; found ${occurrences} matches`);
+        if (occurrences === 0) {
+          updateActivity(actId, { status: "error", error: "oldString not found" });
+          throw new Error("oldString not found in file");
+        }
+        if (occurrences > 1) {
+          updateActivity(actId, { status: "error", error: "ambiguous match" });
+          throw new Error(`oldString is ambiguous; found ${occurrences} matches`);
+        }
 
-      const newContent = content.replace(oldString, newString);
-      await writeFile(resolved, newContent, "utf-8");
-      const diff = computeDiff(content, newContent);
-      const actId = addActivity(relative(cwd, resolved), "edit");
-      updateActivity(actId, { status: "completed", diff, content: newContent });
-      return { success: true as const, path: relative(cwd, resolved), diff };
+        const newContent = content.replace(oldString, newString);
+        await writeFile(resolved, newContent, "utf-8");
+        const diff = computeDiff(content, newContent);
+        updateActivity(actId, { status: "completed", diff, content: newContent });
+        return { success: true as const, path: relPath, diff };
+      } catch (error) {
+        if (!(error instanceof Error && (error.message.includes("oldString") || error.message.includes("ambiguous")))) {
+          updateActivity(actId, { status: "error", error: String(error) });
+        }
+        throw error;
+      }
     }
     case "patchFile": {
       const { path, patches } = toolInputSchemas.patchFile.parse(input);
       const { cwd, resolved } = resolveInsideCwd(path);
-      const originalContent = await readFile(resolved, "utf-8");
-      let content = originalContent;
+      const relPath = relative(cwd, resolved);
+      const actId = addActivity(relPath, "patch");
+      updateActivity(actId, { status: "in_progress" });
+      try {
+        const originalContent = await readFile(resolved, "utf-8");
+        let content = originalContent;
 
       for (const patch of patches) {
         if (patch.action === "append") {
@@ -297,14 +323,17 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
 
       await writeFile(resolved, content, "utf-8");
       const diff = computeDiff(originalContent, content);
-      const actId = addActivity(relative(cwd, resolved), "patch");
       updateActivity(actId, { status: "completed", diff, content });
       return {
         success: true as const,
-        path: relative(cwd, resolved),
+        path: relPath,
         patchesApplied: patches.length,
         diff,
       };
+      } catch (error) {
+        updateActivity(actId, { status: "error", error: String(error) });
+        throw error;
+      }
     }
     case "bash": {
       const { command, timeout = DEFAULT_TIMEOUT } = toolInputSchemas.bash.parse(input);
