@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This repository contains the source for **R’a Core CLI**, a standalone terminal-based AI coding assistant.  
+This repository contains the source for **R'a Core CLI**, a standalone terminal-based AI coding assistant.  
 The project is structured as a **monorepo** with the main application implemented in:
 
 ```
@@ -151,14 +151,43 @@ src/lib/
 
 Notable files:
 
-- **chat-service.ts** — Responsible for orchestrating model requests and streaming responses.
+- **chat-service.ts** — Orchestrates model requests, streaming responses, and builds the system prompt from four protocols (speed, task plan, completion, skills). Auto-injects relevant skills into the prompt based on task context.
+- **agent-accelerator.ts** — Intent controller: classifies tasks (bug/feature/refactor/docs/config/test/UI), assesses risk, selects candidate files from the repo index, suggests verification commands, and builds acceleration strategies.
+- **local-tools.ts** — Implements all 21+ built-in tools including file ops, git, skills, task management, verification, and web fetch.
+- **tool-registry.ts** — Mode-aware tool registry that assembles the toolset per turn (CORE_TOOLS + PLANNING_TOOLS + HEAVY_TOOLS + MCP tools).
+- **skills.ts** — Skills system: stores/retrieves reusable expertise packs as markdown files. Includes `findRelevantSkills()` for auto-injection and `createSkill()` for the skill creator.
+- **todo-store.ts** — Task list with reactive listeners. Powers the task plan protocol with `getPendingTodos()`, `getInProgressTodos()`, and `getTodoStats()`.
 - **config-store.ts** — Reads/writes persistent CLI config (providers, keys, settings).
 - **models.ts** — Defines available model configurations, providers, metadata, and validation.
+- **mcp.ts** — MCP server integration for external tool providers.
+- **checkpoint-store.ts** — Automatic file snapshots before edits with restore capability.
 - **tests** for corresponding modules.
 
-This directory contains the bulk of the system’s behavior that integrates the API, session logic, and persisted user environment.
+This directory contains the bulk of the system's behavior that integrates the API, session logic, task management, skills, and persisted user environment.
 
-### 6. Build & Publish Infrastructure
+### 6. Auto-Continue Engine (Hooks)
+
+```
+src/hooks/use-chat.ts
+```
+
+The auto-continue engine is the core mechanism that ensures the system **never stops until all tasks are done**:
+
+- **`hasPendingTasks()`** — Detects if the latest assistant response has unfinished tasks by checking `getTodoList`/`updateTodoList` tool outputs for pending/in_progress items
+- **Auto-continue loop** — After each assistant response, if tasks remain pending, automatically submits a continuation prompt (up to 12 rounds max)
+- **`abortRef`** — Allows user interruption via Escape key
+- **Completion detection** — Recognizes Final Report headings as completion signals
+
+### 7. System Prompt Architecture
+
+The system prompt is built from four protocols:
+
+1. **Speed Protocol** — Fast workspace context, parallel batch tools, focused verification
+2. **Task Plan Protocol** — AI-generated task decomposition, never duplicate existing tasks, batch parallel work
+3. **Completion Protocol** — Never stop until all tasks done, write Final Report
+4. **Skills Protocol** — Apply injected skills, use MCP tools for their domains, save new skills
+
+### 8. Build & Publish Infrastructure
 
 The CLI uses:
 
@@ -176,7 +205,7 @@ npm publish
 
 (after running the build script automatically via `prepublishOnly`)
 
-### 7. Binary Entry Point
+### 9. Binary Entry Point
 
 The published CLI exposes:
 
