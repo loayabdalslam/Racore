@@ -27,17 +27,20 @@ function OptionRow({
   selected,
   active,
   onSelect,
+  id,
 }: {
   title: string;
   description: string;
   selected: boolean;
   active: boolean;
   onSelect: () => void;
+  id: string;
 }) {
   const { colors } = useTheme();
 
   return (
     <box
+      id={id}
       width="100%"
       flexDirection="column"
       backgroundColor={selected ? colors.selection : active ? colors.dialogSurface : colors.background}
@@ -61,6 +64,12 @@ function OptionRow({
   );
 }
 
+const idMap: Record<number, string> = {
+  0: "theme-row",
+  1: "login-row",
+  2: "finish-row",
+};
+
 export function OnboardingScreen() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -82,10 +91,6 @@ export function OnboardingScreen() {
         ? 1
         : 0;
   const continueIndex = itemsLength;
-  const centeredScrollTop = Math.max(
-    0,
-    selectedIndex * rowHeight - Math.floor(contentHeight / 2) + Math.ceil(rowHeight / 2),
-  );
 
   const finishOnboarding = () => {
     if (model !== DEFAULT_OPENROUTER_MODEL_ID) {
@@ -177,11 +182,16 @@ export function OnboardingScreen() {
     }
   });
 
+  const scrollToElementId =
+    selectedIndex > 0
+      ? `${idMap[stepIndex]}-${selectedIndex}`
+      : "onboarding-row-top";
+
   return (
     <AppShell
       maxWidth={fontSize === "Small" ? 86 : fontSize === "Large" ? 70 : 78}
       contentHeight={contentHeight}
-      scrollTop={centeredScrollTop}
+      scrollToElementId={scrollToElementId}
       footer={
         <box flexDirection="row" gap={2}>
           <text fg={colors.info} onMouseDown={() => navigate("/config")}>
@@ -193,7 +203,7 @@ export function OnboardingScreen() {
         </box>
       }
     >
-      <box width="100%" justifyContent="center">
+      <box width="100%" justifyContent="center" id="onboarding-row-top">
         <text attributes={TextAttributes.BOLD}>WELCOME TO R'A CORE</text>
       </box>
       <box width="100%" justifyContent="center">
@@ -221,6 +231,7 @@ export function OnboardingScreen() {
       {step.id === "theme" &&
         THEMES.map((theme, index) => (
           <OptionRow
+            id={`theme-row-${index}`}
             key={theme.name}
             title={theme.name}
             description="Applies instantly to the CLI."
@@ -234,6 +245,7 @@ export function OnboardingScreen() {
         ))}
       {step.id === "login" && (
         <OptionRow
+          id={`login-row`}
           title={`${getProviderDefinition(provider).shortLabel} CLI login`}
           description={
             loginConnected
@@ -250,6 +262,7 @@ export function OnboardingScreen() {
       )}
       {step.id === "finish" && (
         <OptionRow
+          id={`finish-row`}
           title="Finish onboarding"
           description={`Save ~/.racore/config.json and start with ${DEFAULT_OPENROUTER_MODEL_ID}.`}
           selected={selectedIndex === 0}
@@ -259,6 +272,7 @@ export function OnboardingScreen() {
       )}
       {step.id !== "finish" && (
         <OptionRow
+          id={`${idMap[stepIndex]}-${continueIndex}`}
           title="Continue"
           description={`Next: ${STEPS[stepIndex + 1]?.label}`}
           selected={selectedIndex === continueIndex}
