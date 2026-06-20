@@ -29,13 +29,13 @@ function SettingsRow({
   actionLabel: string;
   selected: boolean;
   onSelect: () => void;
-  id: number;
+  id: string;
 }) {
   const { colors } = useTheme();
 
   return (
     <box
-      id={`settings-row-${id}`}
+      id={id}
       width="100%"
       flexDirection="column"
       paddingX={2}
@@ -241,7 +241,7 @@ export function ConfigScreen() {
           actionLabel={row.actionLabel}
           selected={selectedIndex === index}
           onSelect={row.onSelect}
-          id={index}
+          id={`settings-row-${index}`}
         />
       ))}
       <box width="100%" justifyContent="center">
