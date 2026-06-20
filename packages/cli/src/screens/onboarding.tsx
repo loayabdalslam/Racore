@@ -91,7 +91,6 @@ export function OnboardingScreen() {
 
   const step = STEPS[stepIndex]!;
   const contentHeight = Math.max(12, Math.min(20, dimensions.height - 13));
-  const rowHeight = 4;
   const itemsLength =
     step.id === "theme" ? THEMES.length : step.id === "login" ? 1 : 0;
   const continueIndex = itemsLength;
@@ -244,7 +243,7 @@ export function OnboardingScreen() {
       {step.id === "theme" &&
         THEMES.map((theme, index) => (
           <OptionRow
-            id={`theme-row-${index}`}
+            id={`${idMap[stepIndex]}-${index}`}
             key={theme.name}
             title={theme.name}
             description="Applies instantly to the CLI."
@@ -258,7 +257,7 @@ export function OnboardingScreen() {
         ))}
       {step.id === "login" && (
         <OptionRow
-          id={`login-row`}
+          id={`${idMap[stepIndex]}`}
           title={`${getProviderDefinition(provider).shortLabel} CLI login`}
           description={
             loginConnected
@@ -275,7 +274,7 @@ export function OnboardingScreen() {
       )}
       {step.id === "finish" && (
         <OptionRow
-          id={`finish-row`}
+          id={`${idMap[stepIndex]}`}
           title="Finish onboarding"
           description={`Save ~/.racore/config.json and start with ${DEFAULT_OPENROUTER_MODEL_ID}.`}
           selected={selectedIndex === 0}
