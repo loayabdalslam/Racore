@@ -78,6 +78,8 @@ function SettingsRow({
   );
 }
 
+const ROW_ID = "settings-row";
+
 export function ConfigScreen() {
   const navigate = useNavigate();
   const dialog = useDialog();
@@ -193,9 +195,9 @@ export function ConfigScreen() {
   const scrollToElementId =
     selectedIndex > 0
       ? selectedIndex < settingsRows.length - 1
-        ? `settings-row-${selectedIndex}`
-        : "settings-row-bottom"
-      : "settings-row-top";
+        ? `${ROW_ID}-${selectedIndex}`
+        : `${ROW_ID}-bottom`
+      : `${ROW_ID}-top`;
 
   return (
     <AppShell
@@ -228,7 +230,7 @@ export function ConfigScreen() {
         </box>
       }
     >
-      <box width="100%" justifyContent="center" id="settings-row-top">
+      <box width="100%" justifyContent="center" id={`${ROW_ID}-top`}>
         <text attributes={TextAttributes.BOLD}>CONFIGURATION</text>
       </box>
       <box width="100%" justifyContent="center">
@@ -245,7 +247,7 @@ export function ConfigScreen() {
           actionLabel={row.actionLabel}
           selected={selectedIndex === index}
           onSelect={row.onSelect}
-          id={`settings-row-${index}`}
+          id={`${ROW_ID}-${index}`}
         />
       ))}
       <box width="100%" justifyContent="center">
@@ -253,7 +255,7 @@ export function ConfigScreen() {
           Tab on the main page now cycles Normal, Plan, and Ultra.
         </text>
       </box>
-      <box width="100%" justifyContent="center" id="settings-row-bottom">
+      <box width="100%" justifyContent="center" id={`${ROW_ID}-bottom`}>
         <text attributes={TextAttributes.DIM}>
           Up/Down to move. Enter to select.
         </text>
