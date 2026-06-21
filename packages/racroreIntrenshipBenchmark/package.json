@@ -1,6 +1,6 @@
 {
   "name": "@racore/internship-benchmark",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Daily junior SWE benchmark tasks for R'a Core headless mode",
   "type": "module",
