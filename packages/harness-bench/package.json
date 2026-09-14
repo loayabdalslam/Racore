@@ -1,0 +1,14 @@
+{
+  "name": "@loai/racore-harness-bench",
+  "version": "0.1.0",
+  "description": "Reproducible CLI benchmark runner for agentic harnesses",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "racore-bench": "./bin/racore-bench" },
+  "scripts": {
+    "test": "node tests/smoke.mjs",
+    "smoke": "node bin/racore-bench run suites/smoke.json --harness mock --repeat 2 --workers 2",
+    "doctor": "node bin/racore-bench doctor"
+  },
+  "engines": { "node": ">=20" }
+}
