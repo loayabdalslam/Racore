@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "name": "Global Harness Performance Index public registry",
+  "snapshotDate": "2026-09-15",
+  "method": "For each matched model+benchmark pair, compute 100 * harness_score / neutral_baseline_score. Aggregate multiple pairs with a geometric mean. 100 means baseline parity. This is a harness-lift index, not an absolute capability score.",
+  "baselinePolicy": "Prefer Terminus 2 when the same model exists in the same Terminal-Bench version; use Terminus 1 only when no Terminus 2 matched row exists.",
+  "confidence": { "A": "4+ matched pairs", "B": "2-3 matched pairs", "C": "1 matched pair", "N/A": "no comparable public matched-model evidence" },
+  "sources": {
+    "tb1": "https://www.tbench.ai/leaderboard/terminal-bench/1.0",
+    "tb2": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
+    "tb21": "https://www.tbench.ai/leaderboard/terminal-bench/2.1",
+    "tb4": "https://www.tbench.ai/leaderboard/terminal-bench/4.0"
+  },
+  "harnesses": [
+    { "name": "Ante", "org": "Antigma Labs", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4.5", "score": 60.3, "baseline": "Terminus 2", "baselineScore": 51.0 },
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 54.8, "baseline": "Terminus 2", "baselineScore": 36.4 }
+    ]},
+    { "name": "Chaterm", "org": "Chaterm", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4.5", "score": 63.7, "baseline": "Terminus 2", "baselineScore": 51.0 },
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 49.3, "baseline": "Terminus 2", "baselineScore": 36.4 }
+    ]},
+    { "name": "Goose", "org": "Block", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 41.3, "baseline": "Terminus 2", "baselineScore": 36.4 },
+      { "benchmark": "TB1.0", "model": "Claude Opus 4", "score": 45.3, "baseline": "Terminus 2", "baselineScore": 39.0 },
+      { "benchmark": "TB1.0", "model": "o4-mini", "score": 27.5, "baseline": "Terminus 1", "baselineScore": 18.5 }
+    ]},
+    { "name": "Droid", "org": "Factory", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4.5", "score": 57.5, "baseline": "Terminus 2", "baselineScore": 51.0 },
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 50.5, "baseline": "Terminus 2", "baselineScore": 36.4 },
+      { "benchmark": "TB1.0", "model": "GPT-5", "score": 52.5, "baseline": "Terminus 2", "baselineScore": 41.3 },
+      { "benchmark": "TB1.0", "model": "Claude Opus 4.1", "score": 58.8, "baseline": "Terminus 2", "baselineScore": 43.8 },
+      { "benchmark": "TB2.0", "model": "GPT-5.3-Codex", "score": 77.3, "baseline": "Terminus 2", "baselineScore": 64.7 },
+      { "benchmark": "TB2.0", "model": "Claude Opus 4.6", "score": 69.9, "baseline": "Terminus 2", "baselineScore": 62.9 }
+    ]},
+    { "name": "Engine Labs", "org": "Engine Labs", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 44.8, "baseline": "Terminus 2", "baselineScore": 36.4 }
+    ]},
+    { "name": "Apex2", "org": "Tian Jian Wang", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4.5", "score": 64.5, "baseline": "Terminus 2", "baselineScore": 51.0 },
+      { "benchmark": "TB1.0", "model": "GPT-5", "score": 49.3, "baseline": "Terminus 2", "baselineScore": 41.3 }
+    ]},
+    { "name": "Meta-Harness", "org": "Stanford IRIS", "evidence": [
+      { "benchmark": "TB2.0", "model": "Claude Opus 4.6", "score": 76.4, "baseline": "Terminus 2", "baselineScore": 62.9 }
+    ]},
+    { "name": "SageAgent", "org": "OpenSage", "evidence": [
+      { "benchmark": "TB2.0", "model": "GPT-5.3-Codex", "score": 78.4, "baseline": "Terminus 2", "baselineScore": 64.7 }
+    ]},
+    { "name": "Capy", "org": "Capy", "evidence": [
+      { "benchmark": "TB2.0", "model": "Claude Opus 4.6", "score": 75.3, "baseline": "Terminus 2", "baselineScore": 62.9 }
+    ]},
+    { "name": "Terminus-KIRA", "org": "KRAFTON AI", "evidence": [
+      { "benchmark": "TB2.0", "model": "Claude Opus 4.6", "score": 74.7, "baseline": "Terminus 2", "baselineScore": 62.9 }
+    ]},
+    { "name": "CodeBrain-1.5", "org": "Feeling AI", "evidence": [
+      { "benchmark": "TB2.0", "model": "GPT-5.3-Codex", "score": 75.8, "baseline": "Terminus 2", "baselineScore": 64.7 }
+    ]},
+    { "name": "Codelia", "org": "kousw", "evidence": [
+      { "benchmark": "TB2.0", "model": "GPT-5.3-Codex", "score": 75.7, "baseline": "Terminus 2", "baselineScore": 64.7 }
+    ]},
+    { "name": "Letta", "org": "Letta", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 42.5, "baseline": "Terminus 2", "baselineScore": 36.4 }
+    ]},
+    { "name": "Simple Codex", "org": "OpenAI", "evidence": [
+      { "benchmark": "TB2.0", "model": "GPT-5.3-Codex", "score": 75.1, "baseline": "Terminus 2", "baselineScore": 64.7 }
+    ]},
+    { "name": "CAMEL", "org": "CAMEL-AI", "evidence": [
+      { "benchmark": "TB1.0", "model": "GPT-4.1", "score": 35.0, "baseline": "Terminus 1", "baselineScore": 30.3 }
+    ]},
+    { "name": "TongAgents", "org": "Bigai", "evidence": [
+      { "benchmark": "TB2.0", "model": "Claude Opus 4.6", "score": 71.9, "baseline": "Terminus 2", "baselineScore": 62.9 }
+    ]},
+    { "name": "OpenHands", "org": "OpenHands", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 41.3, "baseline": "Terminus 2", "baselineScore": 36.4 }
+    ]},
+    { "name": "spoox-o-m", "org": "TUM", "evidence": [
+      { "benchmark": "TB2.0", "model": "GPT-5.3-Codex", "score": 71.5, "baseline": "Terminus 2", "baselineScore": 64.7 }
+    ]},
+    { "name": "Mux", "org": "Coder", "evidence": [
+      { "benchmark": "TB2.0", "model": "GPT-5.3-Codex", "score": 74.6, "baseline": "Terminus 2", "baselineScore": 64.7 },
+      { "benchmark": "TB2.0", "model": "Claude Opus 4.6", "score": 66.5, "baseline": "Terminus 2", "baselineScore": 62.9 }
+    ]},
+    { "name": "Codex", "org": "OpenAI", "evidence": [
+      { "benchmark": "TB1.0", "model": "o4-mini", "score": 20.0, "baseline": "Terminus 1", "baselineScore": 18.5 },
+      { "benchmark": "TB2.1", "model": "GPT-5.5", "score": 83.1, "baseline": "Terminus 2", "baselineScore": 78.0 }
+    ], "latestSystem": { "benchmark": "TB4.0", "model": "GPT-6 Astra", "score": 58.18 }},
+    { "name": "IndusAGI Coding Agent", "org": "Varun Israni", "evidence": [
+      { "benchmark": "TB2.0", "model": "GPT-5.3-Codex", "score": 69.1, "baseline": "Terminus 2", "baselineScore": 64.7 }
+    ]},
+    { "name": "Crux", "org": "Roam", "evidence": [
+      { "benchmark": "TB2.0", "model": "Claude Opus 4.6", "score": 66.9, "baseline": "Terminus 2", "baselineScore": 62.9 }
+    ]},
+    { "name": "Claude Code", "org": "Anthropic", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Opus 4", "score": 43.2, "baseline": "Terminus 2", "baselineScore": 39.0 },
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 35.5, "baseline": "Terminus 2", "baselineScore": 36.4 },
+      { "benchmark": "TB2.0", "model": "Claude Opus 4.6", "score": 58.0, "baseline": "Terminus 2", "baselineScore": 62.9 },
+      { "benchmark": "TB2.1", "model": "Fable 5", "score": 83.8, "baseline": "Terminus 2", "baselineScore": 80.4 },
+      { "benchmark": "TB2.1", "model": "Opus 4.7", "score": 68.9, "baseline": "Terminus 2", "baselineScore": 66.1 }
+    ], "latestSystem": { "benchmark": "TB4.0", "model": "Fable 5.1", "score": 57.88 }},
+    { "name": "Gemini CLI", "org": "Google", "evidence": [
+      { "benchmark": "TB2.1", "model": "Gemini 3.1 Pro", "score": 65.8, "baseline": "Terminus 2", "baselineScore": 65.6 }
+    ]},
+    { "name": "DeepAgent Desktop", "org": "Abacus.AI", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4.5", "score": 50.5, "baseline": "Terminus 2", "baselineScore": 51.0 }
+    ]},
+    { "name": "Orchestrator", "org": "Dan Austin", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 37.0, "baseline": "Terminus 2", "baselineScore": 36.4 },
+      { "benchmark": "TB1.0", "model": "Claude Opus 4.1", "score": 40.5, "baseline": "Terminus 2", "baselineScore": 43.8 }
+    ]},
+    { "name": "Alpha", "org": "Ataraxy Labs", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4.5", "score": 38.3, "baseline": "Terminus 2", "baselineScore": 51.0 }
+    ]},
+    { "name": "Mini SWE-Agent", "org": "SWE-Agent", "evidence": [
+      { "benchmark": "TB1.0", "model": "Claude Sonnet 4", "score": 12.8, "baseline": "Terminus 2", "baselineScore": 36.4 }
+    ]},
+    { "name": "Terminus 2", "org": "Terminal-Bench", "role": "neutral-baseline", "evidence": [
+      { "benchmark": "TB2.1", "model": "Gemini 3.1 Pro", "score": 65.6, "baseline": "Terminus 2", "baselineScore": 65.6 }
+    ]},
+
+    { "name": "Cursor CLI", "org": "Cursor", "evidence": [], "latestSystem": { "benchmark": "TB2.1", "model": "Grok 4.5", "score": 79.3 }, "note": "Public absolute result exists, but no same-model neutral baseline in the registry snapshot." },
+    { "name": "Grok Build", "org": "xAI", "evidence": [], "latestSystem": { "benchmark": "TB4.0", "model": "Grok 4.6", "score": 20.3 } },
+    { "name": "LemonHarness", "org": "Lenovo CTO Org", "evidence": [], "note": "TB2.0 entry uses Multiple models, so it is not suitable for model-isolated HPI." },
+    { "name": "Junie CLI", "org": "JetBrains", "evidence": [], "note": "TB2.0 public entry uses Multiple models." },
+    { "name": "OpenCode", "org": "OpenCode", "evidence": [] },
+    { "name": "Cline", "org": "Cline", "evidence": [] },
+    { "name": "Aider", "org": "Aider", "evidence": [] },
+    { "name": "Kilo Code", "org": "Kilo Code", "evidence": [] },
+    { "name": "Roo Code", "org": "Roo Code", "evidence": [] },
+    { "name": "Devin", "org": "Cognition", "evidence": [] },
+    { "name": "Cursor Background Agent", "org": "Cursor", "evidence": [] },
+    { "name": "Windsurf", "org": "Windsurf", "evidence": [] },
+    { "name": "GitHub Copilot Coding Agent", "org": "GitHub", "evidence": [] },
+    { "name": "Augment Code", "org": "Augment", "evidence": [] },
+    { "name": "SWE-agent", "org": "Princeton", "evidence": [] },
+    { "name": "Warp", "org": "Warp", "evidence": [], "note": "TB1.0 public row uses Multiple models." },
+    { "name": "iFlow CLI", "org": "iFlow", "evidence": [] },
+    { "name": "Abacus AI Desktop", "org": "Abacus.AI", "evidence": [], "note": "TB1.0 row uses Multiple models." },
+    { "name": "Racore", "org": "Racore", "evidence": [], "note": "Populate from controlled local runs or an official public benchmark submission." }
+  ]
+}
